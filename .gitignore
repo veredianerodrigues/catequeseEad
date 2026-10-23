@@ -39,3 +39,6 @@ next-env.d.ts
 /apps/api/uploads/
 /uploads/
 dist/
+
+# diário local de desenvolvimento
+/docs/

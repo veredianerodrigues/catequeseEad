@@ -8,11 +8,12 @@ import { api, ApiError, errorLines } from "@/lib/api";
 import { Shell } from "@/components/Shell";
 import { RichContent } from "@/components/RichContent";
 
-type LocalAnswer = { text: string; alternativeIds: string[] };
+type LocalAnswer = { text: string; alternativeIds: string[]; items: { itemId: string; value: boolean }[] };
+const EMPTY: LocalAnswer = { text: "", alternativeIds: [], items: [] };
 type SaveState = "saving" | "saved" | "error";
 
 const DEBOUNCE_MS = 800;
-const hasContent = (a?: LocalAnswer) => !!a && (a.text.trim().length > 0 || a.alternativeIds.length > 0);
+const hasContent = (a?: LocalAnswer) => !!a && (a.text.trim().length > 0 || a.alternativeIds.length > 0 || a.items.length > 0);
 
 export default function AttemptPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,7 +40,7 @@ export default function AttemptPage() {
     try {
       const a = await api.get<AttemptView>(`/attempts/${id}`);
       const initial: Record<string, LocalAnswer> = {};
-      for (const q of a.questions) if (q.answer) initial[q.questionId] = { text: q.answer.text ?? "", alternativeIds: q.answer.alternativeIds };
+      for (const q of a.questions) if (q.answer) initial[q.questionId] = { text: q.answer.text ?? "", alternativeIds: q.answer.alternativeIds, items: q.answer.items };
       latest.current = initial;
       setAnswers(initial);
       setAttempt(a);
@@ -71,9 +72,9 @@ export default function AttemptPage() {
           do {
             dirty.current.delete(qid);
             mark(qid, "saving");
-            const v = latest.current[qid] ?? { text: "", alternativeIds: [] };
+            const v = latest.current[qid] ?? EMPTY;
             const q = attemptRef.current?.questions.find((x) => x.questionId === qid);
-            await api.put(`/attempts/${id}/answers/${qid}`, q?.type === "OPEN" ? { text: v.text } : { alternativeIds: v.alternativeIds });
+            await api.put(`/attempts/${id}/answers/${qid}`, q?.type === "OPEN" ? { text: v.text } : q?.type === "TRUE_FALSE" ? { items: v.items } : { alternativeIds: v.alternativeIds });
           } while (dirty.current.has(qid));
           failed.current.delete(qid);
           setOffline(false);
@@ -182,7 +183,7 @@ export default function AttemptPage() {
 
   const q = attempt.questions[index];
   if (!q) return <Shell><p>Esta tentativa não tem questões.</p></Shell>;
-  const a = answers[q.questionId] ?? { text: "", alternativeIds: [] };
+  const a = answers[q.questionId] ?? EMPTY;
   const answeredCount = attempt.questions.filter((x) => hasContent(answers[x.questionId])).length;
   const state = saveState[q.questionId];
   const unanswered = attempt.total - answeredCount;
@@ -223,7 +224,15 @@ export default function AttemptPage() {
       <article className="card question" key={q.questionId}>
         <RichContent content={q.content} />
 
-        {q.type === "OPEN" ? (
+        {q.items.length > 0 && q.type === "ASSERTIONS" && (
+          <ol className="assertions" aria-label="Assertivas">
+            {q.items.map((it) => (
+              <li key={it.id}><span className="letter">{it.label}.</span> {it.text}</li>
+            ))}
+          </ol>
+        )}
+
+        {q.type === "OPEN" && (
           <div className="field">
             <label htmlFor="resposta">Sua resposta</label>
             <textarea
@@ -236,18 +245,43 @@ export default function AttemptPage() {
               onBlur={() => !readOnly && timers.current.has(q.questionId) && void save(q.questionId)}
             />
           </div>
-        ) : (
+        )}
+
+        {q.type === "TRUE_FALSE" && (
           <fieldset className="alts" disabled={readOnly}>
-            <legend>Selecione uma ou mais alternativas</legend>
+            <legend>Marque Verdadeiro ou Falso em cada afirmação</legend>
+            {q.items.map((it) => {
+              const current = a.items.find((x) => x.itemId === it.id)?.value;
+              const set = (value: boolean) =>
+                change(q, { ...a, items: [...a.items.filter((x) => x.itemId !== it.id), { itemId: it.id, value }] }, true);
+              return (
+                <div key={it.id} className="alt tf">
+                  <span className="letter" aria-hidden="true">{it.label}</span>
+                  <span style={{ flex: 1 }} id={`tf-${it.id}`}>{it.text}</span>
+                  <span className="row" role="radiogroup" aria-labelledby={`tf-${it.id}`}>
+                    <label className="inline"><input type="radio" name={`tf-${it.id}`} checked={current === true} onChange={() => set(true)} /> V</label>
+                    <label className="inline"><input type="radio" name={`tf-${it.id}`} checked={current === false} onChange={() => set(false)} /> F</label>
+                  </span>
+                </div>
+              );
+            })}
+          </fieldset>
+        )}
+
+        {(q.type === "SINGLE" || q.type === "MULTIPLE" || q.type === "ASSERTIONS") && (
+          <fieldset className="alts" disabled={readOnly}>
+            <legend>{q.type === "MULTIPLE" ? "Selecione uma ou mais alternativas" : "Selecione uma alternativa"}</legend>
             {q.alternatives.map((alt) => {
               const checked = a.alternativeIds.includes(alt.id);
+              const exclusive = q.type !== "MULTIPLE";
               return (
                 <label key={alt.id} className={`alt ${checked ? "checked" : ""}`}>
                   <input
-                    type="checkbox"
+                    type={exclusive ? "radio" : "checkbox"}
+                    name={`alt-${q.questionId}`}
                     checked={checked}
                     onChange={() =>
-                      change(q, { ...a, alternativeIds: checked ? a.alternativeIds.filter((x) => x !== alt.id) : [...a.alternativeIds, alt.id] }, true)
+                      change(q, { ...a, alternativeIds: exclusive ? [alt.id] : checked ? a.alternativeIds.filter((x) => x !== alt.id) : [...a.alternativeIds, alt.id] }, true)
                     }
                   />
                   <span className="letter" aria-hidden="true">{alt.label}</span>

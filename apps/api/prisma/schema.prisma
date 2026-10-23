@@ -14,7 +14,18 @@ enum Role {
 
 enum QuestionType {
   OPEN
+  /// Múltipla escolha: exatamente uma alternativa correta.
+  SINGLE
+  /// Múltipla seleção: uma ou mais corretas.
   MULTIPLE
+  /// Análise de assertivas: itens I..N + alternativas de combinação (uma correta).
+  ASSERTIONS
+  TRUE_FALSE
+}
+
+enum SubjectStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum PublishStatus {
@@ -61,9 +72,13 @@ model Session {
   @@index([expiresAt])
 }
 
-model Category {
-  id        String     @id @default(cuid())
-  name      String     @unique
+model Subject {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?       @db.Text
+  status      SubjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+
   questions Question[]
 }
 
@@ -78,19 +93,26 @@ model Question {
   searchText String        @db.Text
   /// Reservado para correção automática/pontuação por questão (v2).
   gradingConfig Json?
-  categoryId String?
+  /// Explicação/gabarito comentado — apenas administradores.
+  explanation    String? @db.Text
+  /// Resposta esperada (questões abertas) — apenas administradores.
+  expectedAnswer String? @db.Text
+  /// SHA-256 do enunciado normalizado, para detectar repetidas dentro do assunto.
+  contentHash    String  @default("") @db.VarChar(64)
+  subjectId  String
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  category      Category?               @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subject       Subject                @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   alternatives  Alternative[]
+  items         QuestionItem[]
   media         Media[]
   questionnaires QuestionnaireQuestion[]
   attemptQuestions AttemptQuestion[]
   answers       Answer[]
 
   @@index([status])
-  @@index([categoryId])
+  @@index([subjectId, contentHash])
   @@index([updatedAt])
 }
 
@@ -103,6 +125,21 @@ model Alternative {
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   selected AnswerAlternative[]
+
+  @@index([questionId, position])
+}
+
+/// Itens de uma questão: assertivas (I..IV) ou afirmações de verdadeiro/falso.
+model QuestionItem {
+  id         String  @id @default(cuid())
+  questionId String
+  position   Int
+  text       String  @db.Text
+  /// Gabarito do item (apenas TRUE_FALSE).
+  isTrue     Boolean?
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  AnswerItem[]
 
   @@index([questionId, position])
 }
@@ -199,6 +236,7 @@ model Answer {
   attempt      Attempt             @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question     Question            @relation(fields: [questionId], references: [id], onDelete: Restrict)
   alternatives AnswerAlternative[]
+  items        AnswerItem[]
 
   @@unique([attemptId, questionId])
 }
@@ -211,4 +249,15 @@ model AnswerAlternative {
   alternative Alternative @relation(fields: [alternativeId], references: [id], onDelete: Restrict)
 
   @@id([answerId, alternativeId])
+}
+
+model AnswerItem {
+  answerId String
+  itemId   String
+  value    Boolean
+
+  answer Answer       @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  item   QuestionItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@id([answerId, itemId])
 }

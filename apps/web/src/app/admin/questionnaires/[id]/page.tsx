@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { TYPE_LABELS, type QuestionType } from "@quiz/shared";
 import { api, errorLines } from "@/lib/api";
 import { Shell } from "@/components/Shell";
 
-type QItem = { id: string; title: string; type: "OPEN" | "MULTIPLE"; status: "DRAFT" | "PUBLISHED" };
+type QItem = { id: string; title: string; type: string; status: "DRAFT" | "PUBLISHED"; subject?: { name: string } };
+type Subject = { id: string; name: string; status: "ACTIVE" | "INACTIVE"; questionCount: number };
+type DrawResult = { questions: QItem[]; shortages: { subjectId: string; requested: number; got: number }[] };
 type Loaded = { id: string; title: string; description: string; status: "DRAFT" | "PUBLISHED"; shuffleAlternatives: boolean; questions: { question: QItem }[] };
 
 export default function QuestionnaireEditorPage() {
@@ -24,6 +27,25 @@ export default function QuestionnaireEditorPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [rules, setRules] = useState<{ subjectId: string; count: number }[]>([{ subjectId: "", count: 5 }]);
+  const [drawMsg, setDrawMsg] = useState<string | null>(null);
+
+  useEffect(() => void api.get<Subject[]>("/admin/subjects?status=ACTIVE").then(setSubjects).catch(() => undefined), []);
+
+  async function draw() {
+    setDrawMsg(null);
+    const valid = rules.filter((r) => r.subjectId && r.count > 0);
+    if (!valid.length) return setDrawMsg("Escolha um assunto e a quantidade.");
+    try {
+      const r = await api.post<DrawResult>("/admin/questionnaires/draw", { rules: valid, excludeIds: selected.map((s) => s.id) });
+      setSelected((p) => [...p, ...r.questions]);
+      const short = r.shortages.map((x) => `${subjects.find((s) => s.id === x.subjectId)?.name ?? "assunto"}: pedidas ${x.requested}, disponíveis ${x.got}`);
+      setDrawMsg(`${r.questions.length} questões sorteadas e adicionadas.${short.length ? ` Faltaram — ${short.join("; ")}.` : ""}`);
+    } catch (e) {
+      setDrawMsg(errorLines(e)[0] ?? "Erro ao sortear.");
+    }
+  }
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -110,13 +132,33 @@ export default function QuestionnaireEditorPage() {
             <ul className="list rows">
               {available.filter((a) => !selectedIds.has(a.id)).map((a) => (
                 <li key={a.id}>
-                  <span>{a.title} <span className="hint">{a.type === "OPEN" ? "aberta" : "múltipla"}</span> {a.status === "DRAFT" && <span className="tag">rascunho</span>}</span>
+                  <span>{a.title} <span className="hint">{TYPE_LABELS[a.type as QuestionType] ?? a.type}</span> {a.status === "DRAFT" && <span className="tag">rascunho</span>}</span>
                   <button type="button" className="btn small ghost" onClick={() => setSelected((p) => [...p, a])}>Adicionar</button>
                 </li>
               ))}
             </ul>
           </section>
         </div>
+
+        <section className="card stack" aria-labelledby="sort">
+          <h2 id="sort" style={{ margin: 0 }}>Sortear por assunto</h2>
+          <p className="hint">Adiciona questões publicadas ao questionário, sem repetir as que já estão nele. Só entram assuntos ativos.</p>
+          {rules.map((r, i) => (
+            <div key={i} className="alt-row">
+              <select aria-label="Assunto" value={r.subjectId} onChange={(e) => setRules((p) => p.map((x, j) => (j === i ? { ...x, subjectId: e.target.value } : x)))}>
+                <option value="">Assunto…</option>
+                {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <input aria-label="Quantidade" type="number" min={1} max={200} value={r.count} style={{ width: "6rem", flex: "none" }} onChange={(e) => setRules((p) => p.map((x, j) => (j === i ? { ...x, count: Number(e.target.value) } : x)))} />
+              {rules.length > 1 && <button type="button" className="btn small ghost" aria-label="Remover regra" onClick={() => setRules((p) => p.filter((_, j) => j !== i))}>✕</button>}
+            </div>
+          ))}
+          <div className="row">
+            <button type="button" className="btn small ghost" onClick={() => setRules((p) => [...p, { subjectId: "", count: 5 }])}>+ Outro assunto</button>
+            <button type="button" className="btn small" onClick={() => void draw()}>Sortear e adicionar</button>
+          </div>
+          {drawMsg && <p role="status" className="hint">{drawMsg}</p>}
+        </section>
 
         {errors.length > 0 && <div className="field-error" role="alert"><ul>{errors.map((m, i) => <li key={i}>{m}</li>)}</ul></div>}
         {saved && <p className="notice success" role="status">Questionário salvo.</p>}

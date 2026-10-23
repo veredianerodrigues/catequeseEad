@@ -23,6 +23,8 @@ export function Shell({ children, adminOnly = false }: { children: ReactNode; ad
   const nav = [
     { href: "/", label: "Questionários", show: true },
     { href: "/admin", label: "Questões", show: me.role === "ADMIN" },
+    { href: "/admin/subjects", label: "Assuntos", show: me.role === "ADMIN" },
+    { href: "/admin/import", label: "Importar", show: me.role === "ADMIN" },
     { href: "/admin/questionnaires", label: "Montar questionários", show: me.role === "ADMIN" },
     { href: "/admin/users", label: "Usuários", show: me.role === "ADMIN" },
   ].filter((n) => n.show);

@@ -21,6 +21,10 @@ Para o login real, crie um OAuth Client ID (Web) com origem `http://localhost:30
 
 Da raiz: `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (os testes da API usam o banco `quiz_test` no mesmo MySQL).
 
+## Assuntos e importação
+
+Toda questão pertence a um **assunto**. Tipos: múltipla escolha, múltipla seleção, análise de assertivas, verdadeiro/falso e aberta. Em *Importar*, envie um `.md`, `.docx` ou `.doc` no modelo de `apps/web/public/modelo-importacao.md`; confira a pré-visualização (válidas, erros, repetidas), edite o que precisar e confirme. No editor de questionário, *Sortear por assunto* adiciona questões publicadas sem repetição.
+
 ## Decisões
 
 - **Sessão**: cookie `sid` httpOnly/SameSite=Lax (Secure em produção); só o hash SHA-256 fica no banco. CSRF: header `x-csrf-token` (obtido em `/auth/me`) + checagem de `Origin`. Web e API no mesmo domínio via proxy `/api`.

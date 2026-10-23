@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { app, doc, login, ORIGIN, prisma, resetDb, seedQuestionnaire, type Client } from "./helpers";
+import { app, doc, login, makeSubject, ORIGIN, prisma, resetDb, seedQuestionnaire, type Client } from "./helpers";
 
 afterAll(() => prisma.$disconnect());
 beforeEach(resetDb);
@@ -60,9 +60,11 @@ describe("autenticação e autorização", () => {
 describe("questões e conteúdo rico", () => {
   it("sanitiza o enunciado (sem scripts, links javascript: nem ids de vídeo inválidos)", async () => {
     const admin = await login("g-admin", "admin@test.com");
+    const subjectId = await makeSubject(admin);
     const r = await admin.post("/admin/questions", {
       type: "OPEN",
       status: "PUBLISHED",
+      subjectId,
       title: "XSS",
       content: {
         type: "doc",
@@ -83,7 +85,7 @@ describe("questões e conteúdo rico", () => {
 
   it("valida regras de publicação, mas aceita rascunho incompleto", async () => {
     const admin = await login("g-admin", "admin@test.com");
-    const base = { type: "MULTIPLE", title: "M", content: doc("x"), alternatives: [{ text: "a", isCorrect: false }, { text: "b", isCorrect: false }] };
+    const base = { subjectId: await makeSubject(admin), type: "MULTIPLE", title: "M", content: doc("x"), alternatives: [{ text: "a", isCorrect: false }, { text: "b", isCorrect: false }] };
     const published = await admin.post("/admin/questions", { ...base, status: "PUBLISHED" });
     expect(published.status).toBe(422);
     expect((await admin.post("/admin/questions", { ...base, status: "DRAFT" })).status).toBe(201);
@@ -93,12 +95,13 @@ describe("questões e conteúdo rico", () => {
   it("atualiza alternativas preservando ids e filtra por texto", async () => {
     const admin = await login("g-admin", "admin@test.com");
     const created = await admin.post("/admin/questions", {
-      type: "MULTIPLE", status: "PUBLISHED", title: "Sacramentos", content: doc("Quantos são os sacramentos?"),
+      subjectId: await makeSubject(admin), type: "MULTIPLE", status: "PUBLISHED", title: "Sacramentos", content: doc("Quantos são os sacramentos?"),
       alternatives: [{ text: "Sete", isCorrect: true }, { text: "Cinco", isCorrect: false }],
     });
     const [a, b] = created.body.alternatives;
     const upd = await admin.put(`/admin/questions/${created.body.id}`, {
       type: "MULTIPLE", status: "PUBLISHED", title: "Sacramentos", content: doc("Quantos são os sacramentos?"),
+      subjectId: created.body.subjectId,
       alternatives: [{ id: b.id, text: "Cinco!", isCorrect: false }, { id: a.id, text: "Sete", isCorrect: true }],
     });
     expect(upd.body.alternatives.map((x: { id: string }) => x.id)).toEqual([b.id, a.id]);
@@ -125,7 +128,7 @@ describe("questões e conteúdo rico", () => {
     expect(served.headers["x-content-type-options"]).toBe("nosniff");
 
     const withImage = await admin.post("/admin/questions", {
-      type: "OPEN", status: "PUBLISHED", title: "Img",
+      subjectId: await makeSubject(admin), type: "OPEN", status: "PUBLISHED", title: "Img",
       content: { type: "doc", content: [{ type: "image", attrs: { mediaId: ok.body.id } }] },
     });
     expect(withImage.status).toBe(201);
@@ -255,7 +258,7 @@ describe("tentativas", () => {
   it("rascunhos não aparecem para participantes e questões despublicadas não entram em novas tentativas", async () => {
     const { admin, user, questionnaireId, questionIds } = await setup({ open: 2, multiple: 0 });
     const q = await admin.get(`/admin/questions/${questionIds[0]}`);
-    await admin.put(`/admin/questions/${questionIds[0]}`, { type: q.body.type, status: "DRAFT", title: q.body.title, content: q.body.content });
+    await admin.put(`/admin/questions/${questionIds[0]}`, { type: q.body.type, status: "DRAFT", title: q.body.title, content: q.body.content, subjectId: q.body.subjectId });
     const attempt = await startAttempt(user, questionnaireId);
     expect(attempt.total).toBe(1);
 

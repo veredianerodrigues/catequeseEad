@@ -4,118 +4,37 @@ import { Router } from "express";
 import multer from "multer";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
-  categoryInputSchema,
+  drawInputSchema,
   extractYoutubeId,
-  hasMeaningfulContent,
   LIMITS,
-  publishIssues,
-  questionInputSchema,
   questionnaireInputSchema,
-  richTextToPlain,
   roleInputSchema,
-  sanitizeRichText,
+  shuffle,
   youtubeInputSchema,
-  type RichNode,
 } from "@quiz/shared";
 import type { Config } from "../config";
 import { conflict, HttpError, notFound, unprocessable } from "../lib/errors";
+import { isFkError, questionInclude, saveQuestion } from "../lib/questions";
 import { sniffMime } from "../lib/media";
+import { importRouter } from "./import";
+import { subjectsRouter } from "./subjects";
 
 const paramId = (v: unknown) => String(v);
-
-function isFkError(e: unknown) {
-  return e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2003" || e.code === "P2014");
-}
 
 export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter: import("express").RequestHandler) {
   const r = Router();
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: LIMITS.pdfBytes, files: 1 } });
 
   // ---------- Questões ----------
-  const questionInclude = { alternatives: { orderBy: { position: "asc" as const } }, category: true };
-
-  async function saveQuestion(input: unknown, userId: string, id?: string) {
-    const data = questionInputSchema.parse(input);
-    let sanitized;
-    try {
-      sanitized = sanitizeRichText(data.content);
-    } catch (e) {
-      throw unprocessable((e as Error).message);
-    }
-    const alternatives = data.type === "MULTIPLE" ? data.alternatives : [];
-    if (data.status === "PUBLISHED") {
-      const issues = publishIssues({ type: data.type, alternatives });
-      if (!hasMeaningfulContent(sanitized.doc)) issues.unshift("O enunciado está vazio.");
-      if (issues.length) throw unprocessable("A questão não pode ser publicada.", issues);
-    }
-    if (sanitized.mediaIds.length) {
-      const found = await prisma.media.count({ where: { id: { in: sanitized.mediaIds }, kind: { in: ["IMAGE", "PDF"] } } });
-      if (found !== sanitized.mediaIds.length) throw unprocessable("O enunciado referencia um arquivo inexistente.");
-    }
-    if (data.categoryId && !(await prisma.category.findUnique({ where: { id: data.categoryId } }))) {
-      throw unprocessable("Categoria inexistente.");
-    }
-
-    try {
-      return await prisma.$transaction(async (tx) => {
-        const base = {
-          type: data.type,
-          status: data.status,
-          title: data.title,
-          content: sanitized.doc as unknown as Prisma.InputJsonValue,
-          searchText: `${data.title} ${richTextToPlain(sanitized.doc as RichNode)}`.slice(0, 60000),
-          categoryId: data.categoryId ?? null,
-        };
-        let questionId = id;
-        if (id) {
-          if (!(await tx.question.findUnique({ where: { id }, select: { id: true } }))) throw notFound("Questão");
-          await tx.question.update({ where: { id }, data: base });
-        } else {
-          questionId = (await tx.question.create({ data: base })).id;
-        }
-        const qid = questionId!;
-
-        // Alternativas: atualiza as existentes por id, cria as novas, remove as ausentes.
-        const existing = await tx.alternative.findMany({ where: { questionId: qid }, select: { id: true } });
-        const existingIds = new Set(existing.map((a) => a.id));
-        const keep = new Set<string>();
-        for (const [position, alt] of alternatives.entries()) {
-          if (alt.id && existingIds.has(alt.id)) {
-            keep.add(alt.id);
-            await tx.alternative.update({ where: { id: alt.id }, data: { position, text: alt.text, isCorrect: alt.isCorrect } });
-          } else {
-            await tx.alternative.create({ data: { questionId: qid, position, text: alt.text, isCorrect: alt.isCorrect } });
-          }
-        }
-        const remove = [...existingIds].filter((x) => !keep.has(x));
-        if (remove.length) await tx.alternative.deleteMany({ where: { id: { in: remove } } });
-
-        // Mídias: vincula arquivos usados e registra vídeos do YouTube.
-        await tx.media.updateMany({ where: { questionId: qid, kind: { in: ["IMAGE", "PDF"] }, id: { notIn: sanitized.mediaIds } }, data: { questionId: null } });
-        if (sanitized.mediaIds.length) await tx.media.updateMany({ where: { id: { in: sanitized.mediaIds } }, data: { questionId: qid } });
-        await tx.media.deleteMany({ where: { questionId: qid, kind: "YOUTUBE" } });
-        if (sanitized.youtubeIds.length) {
-          await tx.media.createMany({
-            data: sanitized.youtubeIds.map((youtubeId) => ({ kind: "YOUTUBE" as const, youtubeId, uploadedById: userId, questionId: qid })),
-          });
-        }
-        return tx.question.findUniqueOrThrow({ where: { id: qid }, include: questionInclude });
-      });
-    } catch (e) {
-      if (isFkError(e)) throw conflict("Uma alternativa removida já foi usada em respostas. Despublique a questão em vez de removê-la.");
-      throw e;
-    }
-  }
-
   r.get("/questions", async (req, res) => {
-    const { q, status, type, categoryId } = req.query as Record<string, string | undefined>;
+    const { q, status, type, subjectId } = req.query as Record<string, string | undefined>;
     const page = Math.max(1, Number(req.query.page ?? 1) || 1);
     const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 20) || 20));
     const where: Prisma.QuestionWhereInput = {
       ...(q ? { searchText: { contains: q } } : {}),
       ...(status === "DRAFT" || status === "PUBLISHED" ? { status } : {}),
-      ...(type === "OPEN" || type === "MULTIPLE" ? { type } : {}),
-      ...(categoryId ? { categoryId } : {}),
+      ...(["OPEN", "SINGLE", "MULTIPLE", "ASSERTIONS", "TRUE_FALSE"].includes(type ?? "") ? { type: type as "OPEN" } : {}),
+      ...(subjectId ? { subjectId } : {}),
     };
     const [total, items] = await Promise.all([
       prisma.question.count({ where }),
@@ -124,7 +43,7 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
         orderBy: { updatedAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        select: { id: true, title: true, type: true, status: true, updatedAt: true, category: { select: { id: true, name: true } } },
+        select: { id: true, title: true, type: true, status: true, updatedAt: true, subject: { select: { id: true, name: true } } },
       }),
     ]);
     res.json({ total, page, pageSize, items });
@@ -135,8 +54,8 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
     if (!q) throw notFound("Questão");
     res.json(q);
   });
-  r.post("/questions", async (req, res) => res.status(201).json(await saveQuestion(req.body, req.user!.id)));
-  r.put("/questions/:id", async (req, res) => res.json(await saveQuestion(req.body, req.user!.id, paramId(req.params.id))));
+  r.post("/questions", async (req, res) => res.status(201).json(await saveQuestion(prisma, req.body, req.user!.id)));
+  r.put("/questions/:id", async (req, res) => res.json(await saveQuestion(prisma, req.body, req.user!.id, paramId(req.params.id))));
   r.delete("/questions/:id", async (req, res) => {
     try {
       await prisma.question.delete({ where: { id: paramId(req.params.id) } });
@@ -148,17 +67,8 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
     res.status(204).end();
   });
 
-  // ---------- Categorias ----------
-  r.get("/categories", async (_req, res) => res.json(await prisma.category.findMany({ orderBy: { name: "asc" } })));
-  r.post("/categories", async (req, res) => {
-    const { name } = categoryInputSchema.parse(req.body);
-    try {
-      res.status(201).json(await prisma.category.create({ data: { name } }));
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") throw conflict("Categoria já existe.");
-      throw e;
-    }
-  });
+  r.use("/subjects", subjectsRouter(prisma));
+  r.use("/import", importRouter(prisma, uploadLimiter));
 
   // ---------- Questionários ----------
   async function saveQuestionnaire(input: unknown, id?: string) {
@@ -182,10 +92,29 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
       await tx.questionnaireQuestion.createMany({ data: unique.map((questionId, position) => ({ questionnaireId: qid!, questionId, position })) });
       return tx.questionnaire.findUniqueOrThrow({
         where: { id: qid! },
-        include: { questions: { orderBy: { position: "asc" }, include: { question: { select: { id: true, title: true, type: true, status: true } } } } },
+        include: { questions: { orderBy: { position: "asc" }, include: { question: { select: { id: true, title: true, type: true, status: true, subject: { select: { name: true } } } } } } },
       });
     });
   }
+
+  // Sorteia questões publicadas por assunto, sem repetir entre assuntos nem com as já escolhidas.
+  r.post("/questionnaires/draw", async (req, res) => {
+    const { rules, excludeIds } = drawInputSchema.parse(req.body);
+    const taken = new Set(excludeIds);
+    const drawn: { id: string; title: string; type: string; status: string; subject: { name: string } }[] = [];
+    const shortages: { subjectId: string; requested: number; got: number }[] = [];
+    for (const rule of rules) {
+      const pool = await prisma.question.findMany({
+        where: { subjectId: rule.subjectId, status: "PUBLISHED", subject: { status: "ACTIVE" }, id: { notIn: [...taken] } },
+        select: { id: true, title: true, type: true, status: true, subject: { select: { name: true } } },
+      });
+      const picked = shuffle(pool).slice(0, rule.count);
+      picked.forEach((p) => taken.add(p.id));
+      drawn.push(...picked);
+      if (picked.length < rule.count) shortages.push({ subjectId: rule.subjectId, requested: rule.count, got: picked.length });
+    }
+    res.json({ questions: drawn, shortages });
+  });
 
   r.get("/questionnaires", async (_req, res) => {
     const items = await prisma.questionnaire.findMany({

@@ -8,6 +8,9 @@ import { conflict, notFound, unprocessable } from "../lib/errors";
 
 const paramId = (v: unknown) => String(v);
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
+/// Apenas estes tipos têm a ordem das alternativas embaralhada (combinações de assertivas mantêm a ordem).
+const SHUFFLES_ALTERNATIVES = new Set(["SINGLE", "MULTIPLE"]);
 
 type Tx = Prisma.TransactionClient;
 
@@ -35,9 +38,16 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
         questionnaire: { select: { id: true, title: true } },
         questions: {
           orderBy: { position: "asc" },
-          include: { question: { include: { alternatives: { orderBy: { position: "asc" }, select: { id: true, text: true } } } } },
+          include: {
+            question: {
+              include: {
+                alternatives: { orderBy: { position: "asc" }, select: { id: true, text: true } },
+                items: { orderBy: { position: "asc" }, select: { id: true, text: true } },
+              },
+            },
+          },
         },
-        answers: { include: { alternatives: true } },
+        answers: { include: { alternatives: true, items: true } },
       },
     });
     if (!attempt) throw notFound("Tentativa");
@@ -49,7 +59,8 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
       const sorted = order ? order.map((id) => alts.find((a) => a.id === id)).filter((a): a is NonNullable<typeof a> => !!a) : alts;
       const a = answerByQuestion.get(aq.questionId);
       const alternativeIds = a?.alternatives.map((x) => x.alternativeId) ?? [];
-      if (a && (a.text || alternativeIds.length)) answered++;
+      const itemAnswers = a?.items.map((x) => ({ itemId: x.itemId, value: x.value })) ?? [];
+      if (a && (a.text || alternativeIds.length || itemAnswers.length)) answered++;
       return {
         questionId: aq.questionId,
         position: aq.position,
@@ -57,7 +68,8 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
         content: aq.question.content,
         // Nunca expor isCorrect ao participante.
         alternatives: sorted.map((alt, i) => ({ id: alt.id, label: LETTERS[i] ?? String(i + 1), text: alt.text })),
-        answer: a ? { text: a.text, alternativeIds } : null,
+        items: aq.question.items.map((it, i) => ({ id: it.id, label: aq.question.type === "ASSERTIONS" ? (ROMAN[i] ?? String(i + 1)) : String(i + 1), text: it.text })),
+        answer: a ? { text: a.text, alternativeIds, items: itemAnswers } : null,
       };
     });
     return {
@@ -117,7 +129,7 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
           questionId: qq.questionId,
           position,
           alternativeOrder:
-            questionnaire.shuffleAlternatives && qq.question.type === "MULTIPLE"
+            questionnaire.shuffleAlternatives && SHUFFLES_ALTERNATIVES.has(qq.question.type)
               ? shuffle(qq.question.alternatives.map((a) => a.id))
               : Prisma.JsonNull,
         })),
@@ -160,23 +172,37 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
 
       const aq = await tx.attemptQuestion.findUnique({
         where: { attemptId_questionId: { attemptId, questionId } },
-        include: { question: { include: { alternatives: { select: { id: true } } } } },
+        include: { question: { include: { alternatives: { select: { id: true } }, items: { select: { id: true } } } } },
       });
       if (!aq) throw notFound("Questão da tentativa");
+      const type = aq.question.type;
 
       let text: string | null = null;
       let alternativeIds: string[] = [];
-      if (aq.question.type === "OPEN") {
-        if (input.alternativeIds?.length) throw unprocessable("Questão aberta não aceita alternativas.");
+      let itemAnswers: { itemId: string; value: boolean }[] = [];
+      const hasAlternatives = type === "SINGLE" || type === "MULTIPLE" || type === "ASSERTIONS";
+      if (!hasAlternatives && input.alternativeIds?.length) throw unprocessable("Este tipo de questão não aceita alternativas.");
+      if (type !== "OPEN" && input.text) throw unprocessable("Este tipo de questão não aceita texto.");
+      if (type !== "TRUE_FALSE" && input.items?.length) throw unprocessable("Este tipo de questão não aceita itens.");
+
+      if (type === "OPEN") {
         text = input.text?.trim() ? input.text : null;
-      } else {
-        if (input.text) throw unprocessable("Questão de múltipla resposta não aceita texto.");
+      } else if (hasAlternatives) {
         alternativeIds = [...new Set(input.alternativeIds ?? [])];
         const valid = new Set(aq.question.alternatives.map((a) => a.id));
         if (alternativeIds.some((id) => !valid.has(id))) throw unprocessable("Alternativa inválida para esta questão.");
+        if (type !== "MULTIPLE" && alternativeIds.length > 1) throw unprocessable("Esta questão aceita apenas uma alternativa.");
+      } else {
+        const valid = new Set(aq.question.items.map((i) => i.id));
+        const byItem = new Map<string, boolean>();
+        for (const it of input.items ?? []) {
+          if (!valid.has(it.itemId)) throw unprocessable("Item inválido para esta questão.");
+          byItem.set(it.itemId, it.value);
+        }
+        itemAnswers = [...byItem].map(([itemId, value]) => ({ itemId, value }));
       }
 
-      if (text === null && alternativeIds.length === 0) {
+      if (text === null && alternativeIds.length === 0 && itemAnswers.length === 0) {
         await tx.answer.deleteMany({ where: { attemptId, questionId } });
         return { empty: true };
       }
@@ -186,7 +212,9 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
         update: { text },
       });
       await tx.answerAlternative.deleteMany({ where: { answerId: answer.id } });
+      await tx.answerItem.deleteMany({ where: { answerId: answer.id } });
       if (alternativeIds.length) await tx.answerAlternative.createMany({ data: alternativeIds.map((alternativeId) => ({ answerId: answer.id, alternativeId })) });
+      if (itemAnswers.length) await tx.answerItem.createMany({ data: itemAnswers.map((x) => ({ answerId: answer.id, ...x })) });
       return { empty: false };
     });
 

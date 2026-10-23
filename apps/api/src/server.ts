@@ -2,6 +2,7 @@ import { OAuth2Client } from "google-auth-library";
 import { PrismaClient } from "@prisma/client";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
+import { backfillContentHashes } from "./lib/questions";
 import type { GoogleVerifier } from "./routes/auth";
 
 const config = loadConfig();
@@ -25,6 +26,7 @@ const verifyGoogle: GoogleVerifier = async (idToken) => {
 };
 
 const app = createApp({ prisma, config, verifyGoogle });
+void backfillContentHashes(prisma).catch((e) => console.error("backfill de hashes falhou", e));
 const server = app.listen(config.port, () => console.log(`API em http://localhost:${config.port}`));
 
 const shutdown = () => server.close(() => void prisma.$disconnect().then(() => process.exit(0)));

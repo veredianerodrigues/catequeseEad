@@ -2,21 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { TYPE_LABELS, QUESTION_TYPES, type QuestionType } from "@quiz/shared";
 import { api, errorLines } from "@/lib/api";
 import { Shell } from "@/components/Shell";
 
-type Item = { id: string; title: string; type: "OPEN" | "MULTIPLE"; status: "DRAFT" | "PUBLISHED"; updatedAt: string; category: { id: string; name: string } | null };
+type Item = { id: string; title: string; type: QuestionType; status: "DRAFT" | "PUBLISHED"; updatedAt: string; subject: { id: string; name: string } };
 type Page = { total: number; page: number; pageSize: number; items: Item[] };
-type Category = { id: string; name: string };
+type Subject = { id: string; name: string };
 
 export default function AdminQuestionsPage() {
-  const [filters, setFilters] = useState({ q: "", status: "", type: "", categoryId: "" });
+  const [filters, setFilters] = useState({ q: "", status: "", type: "", subjectId: "" });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Page | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => void api.get<Category[]>("/admin/categories").then(setCategories).catch(() => undefined), []);
+  useEffect(() => void api.get<Subject[]>("/admin/subjects").then(setSubjects).catch(() => undefined), []);
 
   const load = useCallback(async () => {
     const qs = new URLSearchParams({ page: String(page), pageSize: "20" });
@@ -61,8 +62,8 @@ export default function AdminQuestionsPage() {
       <form className="filters" role="search" onSubmit={(e) => e.preventDefault()}>
         <label>Buscar<input type="search" value={filters.q} onChange={(e) => set("q", e.target.value)} placeholder="Título ou enunciado" /></label>
         <label>Status<select value={filters.status} onChange={(e) => set("status", e.target.value)}><option value="">Todos</option><option value="DRAFT">Rascunho</option><option value="PUBLISHED">Publicada</option></select></label>
-        <label>Tipo<select value={filters.type} onChange={(e) => set("type", e.target.value)}><option value="">Todos</option><option value="OPEN">Resposta aberta</option><option value="MULTIPLE">Múltipla resposta</option></select></label>
-        <label>Categoria<select value={filters.categoryId} onChange={(e) => set("categoryId", e.target.value)}><option value="">Todas</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label>Tipo<select value={filters.type} onChange={(e) => set("type", e.target.value)}><option value="">Todos</option>{QUESTION_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select></label>
+        <label>Assunto<select value={filters.subjectId} onChange={(e) => set("subjectId", e.target.value)}><option value="">Todos</option>{subjects.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       </form>
 
       {error && <p className="field-error" role="alert">{error}</p>}
@@ -72,7 +73,7 @@ export default function AdminQuestionsPage() {
           <li key={it.id}>
             <Link href={`/admin/questions/${it.id}`}>
               <strong>{it.title}</strong>
-              <span className="hint"> {it.type === "OPEN" ? "Aberta" : "Múltipla"}{it.category ? ` · ${it.category.name}` : ""}</span>
+              <span className="hint"> {TYPE_LABELS[it.type]} · {it.subject.name}</span>
             </Link>
             <span className={`tag ${it.status === "PUBLISHED" ? "ok" : ""}`}>{it.status === "PUBLISHED" ? "Publicada" : "Rascunho"}</span>
             <button className="link danger" onClick={() => void remove(it)}>Excluir</button>

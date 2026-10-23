@@ -1,0 +1,16 @@
+{
+  "name": "questionarios",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @quiz/api --filter @quiz/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d --wait mysql",
+    "db:migrate": "pnpm --filter @quiz/api db:migrate",
+    "db:deploy": "pnpm --filter @quiz/api db:deploy"
+  }
+}

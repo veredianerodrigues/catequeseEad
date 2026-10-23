@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum QuestionType {
+  OPEN
+  MULTIPLE
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum MediaKind {
+  IMAGE
+  PDF
+  YOUTUBE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleSub String   @unique
+  email     String   @unique
+  name      String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+
+  sessions Session[]
+  attempts Attempt[]
+  media    Media[]
+}
+
+model Session {
+  /// SHA-256 do token do cookie; o token em si nunca é gravado.
+  id        String   @id
+  userId    String
+  csrfToken String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  questions Question[]
+}
+
+model Question {
+  id         String        @id @default(cuid())
+  type       QuestionType
+  status     PublishStatus @default(DRAFT)
+  title      String
+  /// JSON do TipTap, já sanitizado.
+  content    Json
+  /// Texto puro do enunciado, para busca.
+  searchText String        @db.Text
+  /// Reservado para correção automática/pontuação por questão (v2).
+  gradingConfig Json?
+  categoryId String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  category      Category?               @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  alternatives  Alternative[]
+  media         Media[]
+  questionnaires QuestionnaireQuestion[]
+  attemptQuestions AttemptQuestion[]
+  answers       Answer[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([updatedAt])
+}
+
+model Alternative {
+  id         String  @id @default(cuid())
+  questionId String
+  position   Int
+  text       String  @db.Text
+  isCorrect  Boolean @default(false)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selected AnswerAlternative[]
+
+  @@index([questionId, position])
+}
+
+model Media {
+  id           String    @id @default(cuid())
+  kind         MediaKind
+  /// Chave no armazenamento (arquivo) — nula para YOUTUBE.
+  storageKey   String?   @unique
+  youtubeId    String?
+  mimeType     String?
+  sizeBytes    Int?
+  originalName String?
+  uploadedById String
+  questionId   String?
+  createdAt    DateTime  @default(now())
+
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@index([questionId])
+}
+
+model Questionnaire {
+  id                  String        @id @default(cuid())
+  title               String
+  description         String        @db.Text
+  status              PublishStatus @default(DRAFT)
+  shuffleAlternatives Boolean       @default(false)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  questions QuestionnaireQuestion[]
+  attempts  Attempt[]
+
+  @@index([status])
+}
+
+model QuestionnaireQuestion {
+  questionnaireId String
+  questionId      String
+  position        Int
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  question      Question      @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@id([questionnaireId, questionId])
+  @@index([questionnaireId, position])
+}
+
+model Attempt {
+  id              String        @id @default(cuid())
+  userId          String
+  questionnaireId String
+  status          AttemptStatus @default(IN_PROGRESS)
+  /// Posição (0-based) da questão atual — o "AttemptProgress" fica na própria tentativa.
+  currentIndex    Int           @default(0)
+  startedAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  completedAt     DateTime?
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionnaire Questionnaire    @relation(fields: [questionnaireId], references: [id], onDelete: Restrict)
+  questions     AttemptQuestion[]
+  answers       Answer[]
+
+  @@index([userId, status])
+  @@index([questionnaireId])
+}
+
+model AttemptQuestion {
+  id                String  @id @default(cuid())
+  attemptId         String
+  questionId        String
+  position          Int
+  /// Ordem sorteada das alternativas (ids), quando o questionário embaralha alternativas.
+  alternativeOrder  Json?
+
+  attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, position])
+  @@unique([attemptId, questionId])
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  attemptId  String
+  questionId String
+  text       String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  attempt      Attempt             @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question     Question            @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  alternatives AnswerAlternative[]
+
+  @@unique([attemptId, questionId])
+}
+
+model AnswerAlternative {
+  answerId      String
+  alternativeId String
+
+  answer      Answer      @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  alternative Alternative @relation(fields: [alternativeId], references: [id], onDelete: Restrict)
+
+  @@id([answerId, alternativeId])
+}

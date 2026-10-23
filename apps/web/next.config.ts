@@ -1,9 +1,9 @@
 import path from "node:path";
 import type { NextConfig } from "next";
-import nextEnv from "@next/env";
+import { loadEnvConfig } from "@next/env";
 
 // O .env fica na raiz do monorepo (compartilhado com a API); o Next só leria o de apps/web.
-nextEnv.loadEnvConfig(path.resolve(process.cwd(), "../.."));
+loadEnvConfig(path.resolve(process.cwd(), "../.."));
 
 const isDev = process.env.NODE_ENV !== "production";
 const apiOrigin = process.env.API_ORIGIN ?? "http://localhost:4000";

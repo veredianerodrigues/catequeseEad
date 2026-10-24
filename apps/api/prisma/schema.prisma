@@ -56,6 +56,9 @@ model User {
   sessions Session[]
   attempts Attempt[]
   media    Media[]
+
+  questionnairesCreated Questionnaire[] @relation("QuestionnaireCreator")
+  answersGraded         Answer[]        @relation("AnswerGrader")
 }
 
 model Session {
@@ -169,13 +172,17 @@ model Questionnaire {
   description         String        @db.Text
   status              PublishStatus @default(DRAFT)
   shuffleAlternatives Boolean       @default(false)
+  /// Quem criou: só essa pessoa avalia as respostas (nulo = legado, qualquer administrador).
+  createdById         String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
+  createdBy User?                   @relation("QuestionnaireCreator", fields: [createdById], references: [id], onDelete: SetNull)
   questions QuestionnaireQuestion[]
   attempts  Attempt[]
 
   @@index([status])
+  @@index([createdById])
 }
 
 model QuestionnaireQuestion {
@@ -230,9 +237,14 @@ model Answer {
   attemptId  String
   questionId String
   text       String?  @db.Text
+  /// Avaliação do administrador: true = correta, false = errada, nulo = ainda não avaliada.
+  isCorrect  Boolean?
+  gradedById String?
+  gradedAt   DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  gradedBy     User?               @relation("AnswerGrader", fields: [gradedById], references: [id], onDelete: SetNull)
   attempt      Attempt             @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question     Question            @relation(fields: [questionId], references: [id], onDelete: Restrict)
   alternatives AnswerAlternative[]

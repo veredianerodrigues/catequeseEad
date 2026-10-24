@@ -17,6 +17,7 @@ import { conflict, HttpError, notFound, unprocessable } from "../lib/errors";
 import { isFkError, questionInclude, saveQuestion } from "../lib/questions";
 import { sniffMime } from "../lib/media";
 import { importRouter } from "./import";
+import { reviewsRouter } from "./reviews";
 import { subjectsRouter } from "./subjects";
 
 const paramId = (v: unknown) => String(v);
@@ -69,9 +70,10 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
 
   r.use("/subjects", subjectsRouter(prisma));
   r.use("/import", importRouter(prisma, uploadLimiter));
+  r.use("/reviews", reviewsRouter(prisma));
 
   // ---------- Questionários ----------
-  async function saveQuestionnaire(input: unknown, id?: string) {
+  async function saveQuestionnaire(input: unknown, userId: string, id?: string) {
     const data = questionnaireInputSchema.parse(input);
     const unique = [...new Set(data.questionIds)];
     const questions = await prisma.question.findMany({ where: { id: { in: unique } }, select: { id: true, status: true } });
@@ -87,7 +89,7 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
         await tx.questionnaire.update({ where: { id }, data: base });
         await tx.questionnaireQuestion.deleteMany({ where: { questionnaireId: id } });
       } else {
-        qid = (await tx.questionnaire.create({ data: base })).id;
+        qid = (await tx.questionnaire.create({ data: { ...base, createdById: userId } })).id;
       }
       await tx.questionnaireQuestion.createMany({ data: unique.map((questionId, position) => ({ questionnaireId: qid!, questionId, position })) });
       return tx.questionnaire.findUniqueOrThrow({
@@ -119,7 +121,7 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
   r.get("/questionnaires", async (_req, res) => {
     const items = await prisma.questionnaire.findMany({
       orderBy: { updatedAt: "desc" },
-      include: { _count: { select: { questions: true, attempts: true } } },
+      include: { _count: { select: { questions: true, attempts: true } }, createdBy: { select: { name: true } } },
     });
     res.json(items);
   });
@@ -131,8 +133,8 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
     if (!item) throw notFound("Questionário");
     res.json(item);
   });
-  r.post("/questionnaires", async (req, res) => res.status(201).json(await saveQuestionnaire(req.body)));
-  r.put("/questionnaires/:id", async (req, res) => res.json(await saveQuestionnaire(req.body, paramId(req.params.id))));
+  r.post("/questionnaires", async (req, res) => res.status(201).json(await saveQuestionnaire(req.body, req.user!.id)));
+  r.put("/questionnaires/:id", async (req, res) => res.json(await saveQuestionnaire(req.body, req.user!.id, paramId(req.params.id))));
   r.delete("/questionnaires/:id", async (req, res) => {
     try {
       await prisma.questionnaire.delete({ where: { id: paramId(req.params.id) } });

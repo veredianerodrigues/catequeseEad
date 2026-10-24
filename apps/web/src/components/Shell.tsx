@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 
-export function Shell({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
+export function Shell({ children, adminOnly = false, wide = false }: { children: ReactNode; adminOnly?: boolean; wide?: boolean }) {
   const { me, loading, signOut } = useAuth();
   const pathname = usePathname();
 
@@ -26,6 +26,7 @@ export function Shell({ children, adminOnly = false }: { children: ReactNode; ad
     { href: "/admin/subjects", label: "Assuntos", show: me.role === "ADMIN" },
     { href: "/admin/import", label: "Importar", show: me.role === "ADMIN" },
     { href: "/admin/questionnaires", label: "Montar questionários", show: me.role === "ADMIN" },
+    { href: "/admin/reviews", label: "Respostas", show: me.role === "ADMIN" },
     { href: "/admin/users", label: "Usuários", show: me.role === "ADMIN" },
   ].filter((n) => n.show);
 
@@ -45,7 +46,7 @@ export function Shell({ children, adminOnly = false }: { children: ReactNode; ad
           <button className="btn small ghost" onClick={() => void signOut()}>Sair</button>
         </div>
       </header>
-      <main id="conteudo" className="container">{children}</main>
+      <main id="conteudo" className={`container${wide ? " wide" : ""}`}>{children}</main>
     </>
   );
 }

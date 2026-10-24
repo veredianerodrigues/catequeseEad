@@ -209,6 +209,18 @@ describe("importação de questões", () => {
     expect(r.body.drafts[0].explanation).toBe("Tempo de preparação.");
   });
 
+  it("os modelos distribuídos para download (.docx e .md) são lidos sem erro", async () => {
+    const admin = await login("g-admin", "admin@test.com");
+    const pub = path.join(__dirname, "..", "..", "web", "public");
+    for (const file of ["modelo-importacao.docx", "modelo-importacao.md"]) {
+      const r = await admin.upload("/admin/import/preview", fs.readFileSync(path.join(pub, file)), file);
+      expect(r.status, file).toBe(200);
+      expect(r.body.drafts.map((d: { type: string; errors: string[] }) => [d.type, d.errors.length]), file).toEqual([
+        ["SINGLE", 0], ["MULTIPLE", 0], ["ASSERTIONS", 0], ["TRUE_FALSE", 0], ["OPEN", 0],
+      ]);
+    }
+  });
+
   it("recusa arquivo com mais de um assunto", async () => {
     const admin = await login("g-admin", "admin@test.com");
     const r = await send(admin, "Assunto: A\nQuestão 1\nTipo: aberta\nEnunciado: x\n\nAssunto: B\nQuestão 2\nTipo: aberta\nEnunciado: y\n");

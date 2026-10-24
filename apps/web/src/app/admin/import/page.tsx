@@ -131,7 +131,63 @@ export default function ImportPage() {
   return (
     <Shell adminOnly>
       <h1>Importar questões</h1>
-      <p className="hint">Envie um arquivo .md, .docx ou .doc no modelo (Assunto, Questão n, Tipo, Enunciado, Itens, Alternativas, Resposta, Explicação). Nada é gravado antes da sua confirmação. <a href="/modelo-importacao.md" download>Baixar arquivo de exemplo</a>.</p>
+      <p className="hint">Envie um arquivo no modelo abaixo. Nada é gravado antes da sua confirmação.</p>
+
+      <details className="card guide" open>
+        <summary><strong>Como preparar o arquivo de importação</strong></summary>
+
+        <div className="row" style={{ margin: ".75rem 0" }}>
+          <a className="btn small" href="/modelo-importacao.docx" download>Baixar modelo (.docx)</a>
+          <a className="btn small ghost" href="/modelo-importacao.md" download>Baixar modelo (.md)</a>
+        </div>
+
+        <h3>Regras gerais</h3>
+        <ul>
+          <li><strong>Formatos:</strong> .docx, .doc ou .md (até 5 MB). Só o texto é lido; imagens e tabelas do arquivo são ignoradas — adicione-as depois, editando a questão.</li>
+          <li><strong>Um assunto por arquivo.</strong> A primeira linha é <code>Assunto: Nome do assunto</code>. Se o assunto já existir, ele é sugerido; se não, você pode criá-lo aqui. Arquivos com mais de um assunto são recusados.</li>
+          <li><strong>Cada questão começa</strong> com a linha <code>Questão 1</code>, <code>Questão 2</code>… (somente isso na linha) e vem seguida dos campos abaixo, cada um iniciado pelo rótulo e dois-pontos.</li>
+          <li><strong>Campos:</strong> <code>Tipo:</code> · <code>Enunciado:</code> · <code>Itens:</code> · <code>Alternativas:</code> · <code>Resposta:</code> · <code>Explicação:</code>. Enunciado, resposta e explicação podem ocupar várias linhas, até o próximo rótulo.</li>
+          <li><strong>Itens e alternativas:</strong> um por linha. Prefixos como <code>I.</code>, <code>1.</code>, <code>a)</code> ou <code>A)</code> são opcionais. As alternativas viram A, B, C… na ordem em que aparecem.</li>
+          <li><strong>Explicação</strong> é opcional e só administradores a veem. Não use blocos de código nem repita a mesma questão.</li>
+        </ul>
+
+        <h3>Tipos aceitos (valor do campo <code>Tipo:</code>)</h3>
+        <div className="table-wrap">
+          <table className="table">
+            <thead><tr><th>Tipo</th><th>O que informar</th><th>Formato da resposta</th></tr></thead>
+            <tbody>
+              <tr><td><code>multipla_escolha</code></td><td>Enunciado e 2 a 10 alternativas</td><td>Uma letra: <code>B</code></td></tr>
+              <tr><td><code>multipla_selecao</code></td><td>Enunciado e 2 a 10 alternativas</td><td>Uma ou mais letras: <code>A, C</code> ou <code>A e C</code></td></tr>
+              <tr><td><code>assertivas</code></td><td>Enunciado, ao menos 2 itens (I, II, III…) e as alternativas de combinação</td><td>Uma letra: <code>C</code></td></tr>
+              <tr><td><code>verdadeiro_falso</code></td><td>Enunciado e ao menos 2 itens (afirmações)</td><td>Sequência V/F na ordem dos itens: <code>V, F, V, F</code></td></tr>
+              <tr><td><code>aberta</code></td><td>Enunciado</td><td>Resposta esperada (opcional, texto livre)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Exemplo</h3>
+        <pre className="example">{`Assunto: Sacramentos
+
+Questão 1
+Tipo: multipla_escolha
+Enunciado: Quantos são os sacramentos?
+Alternativas:
+a) Cinco
+b) Sete
+c) Nove
+Resposta: B
+Explicação: A Igreja reconhece sete sacramentos.
+
+Questão 2
+Tipo: verdadeiro_falso
+Enunciado: Julgue as afirmações:
+Itens:
+1. A Eucaristia é fonte da vida cristã.
+2. A Crisma é sacramento de cura.
+Resposta: V, F`}</pre>
+
+        <p className="hint">Depois do envio você vê a pré-visualização com as questões válidas, as com erro (e o motivo) e as repetidas no assunto. Pode editar, excluir ou adicionar questões ali, e importar só as válidas.</p>
+      </details>
 
       <div className="card stack">
         <div className="field">

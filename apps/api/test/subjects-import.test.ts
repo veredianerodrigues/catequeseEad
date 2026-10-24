@@ -209,6 +209,13 @@ describe("importação de questões", () => {
     expect(r.body.drafts[0].explanation).toBe("Tempo de preparação.");
   });
 
+  it("recusa arquivo com mais de um assunto", async () => {
+    const admin = await login("g-admin", "admin@test.com");
+    const r = await send(admin, "Assunto: A\nQuestão 1\nTipo: aberta\nEnunciado: x\n\nAssunto: B\nQuestão 2\nTipo: aberta\nEnunciado: y\n");
+    expect(r.status).toBe(422);
+    expect(r.body.error).toMatch(/2 assuntos.*um arquivo por assunto/);
+  });
+
   it("rejeita formatos e conteúdo inválidos", async () => {
     const admin = await login("g-admin", "admin@test.com");
     expect((await send(admin, MODEL, "modelo.pdf")).status).toBe(422);

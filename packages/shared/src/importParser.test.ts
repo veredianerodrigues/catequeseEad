@@ -89,6 +89,13 @@ describe("parseQuestionsText", () => {
   });
 });
 
+describe("vários assuntos no mesmo arquivo", () => {
+  it("lista os assuntos distintos", () => {
+    const r = parseQuestionsText("Assunto: Credo\nQuestão 1\nTipo: aberta\nEnunciado: a\n\nAssunto: Maria\nQuestão 2\nTipo: aberta\nEnunciado: b\n\nAssunto: credo\n");
+    expect(r.subjectNames).toEqual(["Credo", "Maria"]);
+  });
+});
+
 describe("utilitários", () => {
   it("normaliza enunciados para comparar repetidas", () => {
     expect(normalizeStatement("Quantos são os SACRAMENTOS?")).toBe(normalizeStatement("quantos  sao os sacramentos"));

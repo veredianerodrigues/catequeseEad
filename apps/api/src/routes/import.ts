@@ -33,7 +33,10 @@ export function importRouter(prisma: PrismaClient, uploadLimiter: RequestHandler
     if (!file) throw new HttpError(400, "Envie um arquivo no campo 'file'.");
     const fileName = Buffer.from(file.originalname, "latin1").toString("utf8");
     const text = await extractText(fileName, file.buffer);
-    const { subjectName, drafts } = parseQuestionsText(text);
+    const { subjectName, subjectNames, drafts } = parseQuestionsText(text);
+    if (subjectNames.length > 1) {
+      throw unprocessable(`O arquivo tem ${subjectNames.length} assuntos (${subjectNames.join(", ")}). Importe um arquivo por assunto.`);
+    }
     if (!drafts.length) throw unprocessable('Nenhuma questão encontrada. Confira se o arquivo usa "Questão 1", "Tipo:", "Enunciado:"…');
 
     let suggestedSubjectId: string | null = null;

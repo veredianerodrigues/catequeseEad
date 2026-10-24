@@ -16,7 +16,7 @@ export type ImportDraft = {
   parseErrors: string[];
 };
 
-export type ParsedFile = { subjectName: string | null; drafts: ImportDraft[] };
+export type ParsedFile = { subjectName: string | null; subjectNames: string[]; drafts: ImportDraft[] };
 
 const TYPE_ALIASES: Record<string, QuestionType> = {
   assertivas: "ASSERTIONS",
@@ -104,6 +104,7 @@ function buildDraft(raw: Raw, index: number): ImportDraft {
 /** Lê o texto (de .md ou extraído de .docx/.doc) no modelo "Questão n / Tipo / Enunciado / ...". */
 export function parseQuestionsText(text: string): ParsedFile {
   let subjectName: string | null = null;
+  const subjectNames: string[] = [];
   const raws: Raw[] = [];
   let cur: Raw | null = null;
   let field: Field | null = null;
@@ -131,6 +132,7 @@ export function parseQuestionsText(text: string): ParsedFile {
       const value = m[2]!.trim();
       if (name === "assunto") {
         if (!subjectName && value) subjectName = value;
+        if (value && !subjectNames.some((n) => normalizeStatement(n) === normalizeStatement(value))) subjectNames.push(value);
         field = "assunto";
         continue;
       }
@@ -145,7 +147,7 @@ export function parseQuestionsText(text: string): ParsedFile {
     push(field, line.trim() ? line : "");
   }
 
-  return { subjectName, drafts: raws.map(buildDraft) };
+  return { subjectName, subjectNames, drafts: raws.map(buildDraft) };
 }
 
 /** Motivos pelos quais o rascunho não pode ser gravado (lista vazia = válido). */

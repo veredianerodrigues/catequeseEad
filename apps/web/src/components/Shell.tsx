@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Shell({ children, adminOnly = false, wide = false }: { children: ReactNode; adminOnly?: boolean; wide?: boolean }) {
   const { me, loading, signOut } = useAuth();
@@ -43,6 +44,7 @@ export function Shell({ children, adminOnly = false, wide = false }: { children:
         </nav>
         <div className="who">
           <span title={me.email}>{me.name}</span>
+          <ThemeToggle />
           <button className="btn small ghost" onClick={() => void signOut()}>Sair</button>
         </div>
       </header>

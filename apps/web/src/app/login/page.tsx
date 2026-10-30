@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { errorLines } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type GoogleId = {
   initialize: (o: { client_id: string; callback: (r: { credential: string }) => void }) => void;
@@ -57,6 +58,7 @@ function LoginInner() {
 
   return (
     <main className="center">
+      <ThemeToggle />
       <h1>Questionários</h1>
       <p>Entre com sua conta Google para responder e continuar de onde parou.</p>
       {params.get("expired") && <p className="notice" role="alert">Sua sessão expirou. Entre novamente — suas respostas salvas continuam guardadas.</p>}

@@ -9,7 +9,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   return {
     isProd,
     isTest,
-    port: Number(env.API_PORT ?? 4000),
+    port: Number(env.API_PORT ?? env.PORT ?? 4000),
     appOrigin: env.APP_ORIGIN ?? "http://localhost:3000",
     googleClientId: env.GOOGLE_CLIENT_ID ?? "",
     adminEmails: (env.ADMIN_EMAILS ?? "")

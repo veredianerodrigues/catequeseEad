@@ -8,3 +8,11 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - unrs-resolver
+# pnpm 11 (usado na hospedagem) lê esta chave no lugar de onlyBuiltDependencies
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

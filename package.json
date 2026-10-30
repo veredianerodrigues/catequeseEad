@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "pnpm -r --parallel --filter @quiz/api --filter @quiz/web dev",
     "build": "pnpm -r build",
-    "build:api": "pnpm --filter @quiz/api build && pnpm --filter @quiz/api db:deploy",
-    "build:web": "pnpm --filter @quiz/web build",
+    "build:api": "npm --prefix apps/api run build && npm --prefix apps/api run db:deploy",
+    "build:web": "npm --prefix apps/web run build",
     "start": "pnpm -r --parallel --filter @quiz/api --filter @quiz/web start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",

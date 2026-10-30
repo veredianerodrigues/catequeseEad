@@ -15,6 +15,9 @@ declare global {
   }
 }
 
+/** Só aceita caminhos internos (evita redirecionar para outro site). */
+const safeNext = (v: string | null) => (v && v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/login") ? v : "/");
+
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const DEV_AUTH = process.env.NEXT_PUBLIC_DEV_AUTH === "true";
 
@@ -26,8 +29,8 @@ function LoginInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && me) router.replace("/");
-  }, [loading, me, router]);
+    if (!loading && me) router.replace(safeNext(params.get("next")));
+  }, [loading, me, router, params]);
 
   useEffect(() => {
     if (!CLIENT_ID || loading || me) return;

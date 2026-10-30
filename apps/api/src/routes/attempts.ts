@@ -28,6 +28,40 @@ const requireInProgress = (status: string) => {
   if (status !== "IN_PROGRESS") throw conflict("Esta tentativa não está mais em andamento.");
 };
 
+/** Cria a tentativa de `userId` no questionário publicado que casa com `where` (por id ou por código de link). */
+export async function createAttempt(prisma: PrismaClient, userId: string, where: Prisma.QuestionnaireWhereInput): Promise<string> {
+  const questionnaire = await prisma.questionnaire.findFirst({
+    where: { ...where, status: "PUBLISHED" },
+    include: {
+      questions: {
+        where: { question: { status: "PUBLISHED" } },
+        orderBy: { position: "asc" },
+        include: { question: { include: { alternatives: { select: { id: true } } } } },
+      },
+    },
+  });
+  if (!questionnaire) throw notFound("Questionário");
+  if (!questionnaire.questions.length) throw unprocessable("Este questionário ainda não tem questões publicadas.");
+
+  const ordered = shuffle(questionnaire.questions);
+  const attempt = await prisma.$transaction(async (tx) => {
+    const created = await tx.attempt.create({ data: { userId, questionnaireId: questionnaire.id } });
+    await tx.attemptQuestion.createMany({
+      data: ordered.map((qq, position) => ({
+        attemptId: created.id,
+        questionId: qq.questionId,
+        position,
+        alternativeOrder:
+          questionnaire.shuffleAlternatives && SHUFFLES_ALTERNATIVES.has(qq.question.type)
+            ? shuffle(qq.question.alternatives.map((a) => a.id))
+            : Prisma.JsonNull,
+      })),
+    });
+    return created;
+  });
+  return attempt.id;
+}
+
 export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimiter: import("express").RequestHandler) {
   const r = Router();
 
@@ -88,7 +122,7 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
   // Questionários publicados + tentativa em andamento do usuário
   r.get("/questionnaires", async (req, res) => {
     const items = await prisma.questionnaire.findMany({
-      where: { status: "PUBLISHED" },
+      where: { status: "PUBLISHED", listed: true },
       orderBy: { title: "asc" },
       select: {
         id: true,
@@ -105,38 +139,10 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
     );
   });
 
-  // Nova tentativa: sorteia e persiste a ordem uma única vez.
+  // Nova tentativa (por id): a ordem é sorteada e persistida uma única vez.
   r.post("/questionnaires/:id/attempts", async (req, res) => {
-    const questionnaire = await prisma.questionnaire.findFirst({
-      where: { id: paramId(req.params.id), status: "PUBLISHED" },
-      include: {
-        questions: {
-          where: { question: { status: "PUBLISHED" } },
-          orderBy: { position: "asc" },
-          include: { question: { include: { alternatives: { select: { id: true } } } } },
-        },
-      },
-    });
-    if (!questionnaire) throw notFound("Questionário");
-    if (!questionnaire.questions.length) throw unprocessable("Este questionário ainda não tem questões publicadas.");
-
-    const ordered = shuffle(questionnaire.questions);
-    const attempt = await prisma.$transaction(async (tx) => {
-      const created = await tx.attempt.create({ data: { userId: req.user!.id, questionnaireId: questionnaire.id } });
-      await tx.attemptQuestion.createMany({
-        data: ordered.map((qq, position) => ({
-          attemptId: created.id,
-          questionId: qq.questionId,
-          position,
-          alternativeOrder:
-            questionnaire.shuffleAlternatives && SHUFFLES_ALTERNATIVES.has(qq.question.type)
-              ? shuffle(qq.question.alternatives.map((a) => a.id))
-              : Prisma.JsonNull,
-        })),
-      });
-      return created;
-    });
-    res.status(201).json(await buildView(attempt.id, req.user!.id));
+    const attemptId = await createAttempt(prisma, req.user!.id, { id: paramId(req.params.id) });
+    res.status(201).json(await buildView(attemptId, req.user!.id));
   });
 
   r.get("/attempts", async (req, res) => {

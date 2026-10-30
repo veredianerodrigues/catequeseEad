@@ -16,6 +16,7 @@ import type { Config } from "../config";
 import { conflict, HttpError, notFound, unprocessable } from "../lib/errors";
 import { isFkError, questionInclude, saveQuestion } from "../lib/questions";
 import { sniffMime } from "../lib/media";
+import { newShareCode } from "../lib/shareCode";
 import { importRouter } from "./import";
 import { reviewsRouter } from "./reviews";
 import { subjectsRouter } from "./subjects";
@@ -82,14 +83,14 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
       throw unprocessable("Publique ao menos uma questão publicada no questionário.");
     }
     return prisma.$transaction(async (tx) => {
-      const base = { title: data.title, description: data.description, status: data.status, shuffleAlternatives: data.shuffleAlternatives };
+      const base = { title: data.title, description: data.description, status: data.status, shuffleAlternatives: data.shuffleAlternatives, listed: data.listed };
       let qid = id;
       if (id) {
         if (!(await tx.questionnaire.findUnique({ where: { id }, select: { id: true } }))) throw notFound("Questionário");
         await tx.questionnaire.update({ where: { id }, data: base });
         await tx.questionnaireQuestion.deleteMany({ where: { questionnaireId: id } });
       } else {
-        qid = (await tx.questionnaire.create({ data: { ...base, createdById: userId } })).id;
+        qid = (await tx.questionnaire.create({ data: { ...base, createdById: userId, shareCode: newShareCode() } })).id;
       }
       await tx.questionnaireQuestion.createMany({ data: unique.map((questionId, position) => ({ questionnaireId: qid!, questionId, position })) });
       return tx.questionnaire.findUniqueOrThrow({
@@ -135,6 +136,17 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
   });
   r.post("/questionnaires", async (req, res) => res.status(201).json(await saveQuestionnaire(req.body, req.user!.id)));
   r.put("/questionnaires/:id", async (req, res) => res.json(await saveQuestionnaire(req.body, req.user!.id, paramId(req.params.id))));
+  // Gera um novo código: o link anterior deixa de funcionar.
+  r.post("/questionnaires/:id/share-code", async (req, res) => {
+    try {
+      const q = await prisma.questionnaire.update({ where: { id: paramId(req.params.id) }, data: { shareCode: newShareCode() }, select: { shareCode: true } });
+      res.json(q);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") throw notFound("Questionário");
+      throw e;
+    }
+  });
+
   r.delete("/questionnaires/:id", async (req, res) => {
     try {
       await prisma.questionnaire.delete({ where: { id: paramId(req.params.id) } });

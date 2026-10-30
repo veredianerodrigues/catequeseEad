@@ -12,6 +12,7 @@ import { HttpError } from "./lib/errors";
 import { adminRouter } from "./routes/admin";
 import { attemptsRouter } from "./routes/attempts";
 import { authRouter, type GoogleVerifier } from "./routes/auth";
+import { sharedRouter } from "./routes/shared";
 
 export type AppDeps = { prisma: PrismaClient; config: Config; verifyGoogle: GoogleVerifier };
 
@@ -45,6 +46,7 @@ export function createApp({ prisma, config, verifyGoogle }: AppDeps) {
 
   app.use("/auth", authRouter(prisma, config, verifyGoogle, limiter(15 * 60_000, 30)));
   app.use("/admin", requireAdmin, adminRouter(prisma, config, limiter(60_000, 30)));
+  app.use("/shared", requireAuth, sharedRouter(prisma, limiter(60_000, 40)));
   app.use("/", requireAuth, attemptsRouter(prisma, config, limiter(60_000, 240)));
 
   app.use((_req, _res, next) => next(new HttpError(404, "Rota não encontrada")));

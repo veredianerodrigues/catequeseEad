@@ -106,6 +106,7 @@ export async function seedQuestionnaire(admin: Client, opts: { open?: number; mu
     description: "",
     status: "PUBLISHED",
     shuffleAlternatives: opts.shuffleAlternatives ?? false,
+    listed: true,
     questionIds: ids,
   });
   if (qn.status !== 201) throw new Error(JSON.stringify(qn.body));

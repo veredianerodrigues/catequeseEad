@@ -74,7 +74,7 @@ export default function HomePage() {
       <section aria-labelledby="disponiveis">
         <h2 id="disponiveis">Disponíveis</h2>
         {items === null && !error && <p className="hint" role="status">Carregando…</p>}
-        {items?.length === 0 && <p className="hint">Nenhum questionário publicado no momento.</p>}
+        {items?.length === 0 && <p className="hint">Nenhum questionário listado. Para responder um questionário, abra o link que você recebeu.</p>}
         <ul className="cards">
           {items?.map((q) => (
             <li key={q.id} className="card">

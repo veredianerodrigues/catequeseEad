@@ -5,11 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { TYPE_LABELS, type QuestionType } from "@quiz/shared";
 import { api, errorLines } from "@/lib/api";
 import { Shell } from "@/components/Shell";
+import { ShareBox } from "@/components/ShareBox";
 
 type QItem = { id: string; title: string; type: string; status: "DRAFT" | "PUBLISHED"; subject?: { name: string } };
 type Subject = { id: string; name: string; status: "ACTIVE" | "INACTIVE"; questionCount: number };
 type DrawResult = { questions: QItem[]; shortages: { subjectId: string; requested: number; got: number }[] };
-type Loaded = { id: string; title: string; description: string; status: "DRAFT" | "PUBLISHED"; shuffleAlternatives: boolean; questions: { question: QItem }[] };
+type Loaded = { id: string; title: string; description: string; status: "DRAFT" | "PUBLISHED"; shuffleAlternatives: boolean; listed: boolean; shareCode: string; questions: { question: QItem }[] };
 
 export default function QuestionnaireEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,8 @@ export default function QuestionnaireEditorPage() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const [shuffleAlternatives, setShuffle] = useState(false);
+  const [listed, setListed] = useState(false);
+  const [shareCode, setShareCode] = useState("");
   const [selected, setSelected] = useState<QItem[]>([]);
   const [available, setAvailable] = useState<QItem[]>([]);
   const [search, setSearch] = useState("");
@@ -64,7 +67,10 @@ export default function QuestionnaireEditorPage() {
         setTitle(q.title);
         setDescription(q.description);
         setStatus(q.status);
+      setShareCode(q.shareCode);
         setShuffle(q.shuffleAlternatives);
+        setListed(q.listed);
+        setShareCode(q.shareCode);
         setSelected(q.questions.map((x) => x.question));
         setReady(true);
       })
@@ -85,7 +91,7 @@ export default function QuestionnaireEditorPage() {
     setBusy(true);
     setErrors([]);
     setSaved(false);
-    const body = { title, description, status: nextStatus, shuffleAlternatives, questionIds: selected.map((s) => s.id) };
+    const body = { title, description, status: nextStatus, shuffleAlternatives, listed, questionIds: selected.map((s) => s.id) };
     try {
       const q = isNew ? await api.post<Loaded>("/admin/questionnaires", body) : await api.put<Loaded>(`/admin/questionnaires/${id}`, body);
       setStatus(q.status);
@@ -108,6 +114,10 @@ export default function QuestionnaireEditorPage() {
         <div className="field"><label htmlFor="t">Título</label><input id="t" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} /></div>
         <div className="field"><label htmlFor="d">Descrição</label><textarea id="d" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
         <label className="inline"><input type="checkbox" checked={shuffleAlternatives} onChange={(e) => setShuffle(e.target.checked)} /> Embaralhar também as alternativas</label>
+
+        <label className="inline"><input type="checkbox" checked={listed} onChange={(e) => setListed(e.target.checked)} /> Listar na página inicial de todos os participantes <span className="hint">(desmarcado: só quem tiver o link acessa)</span></label>
+
+        {!isNew && shareCode && <ShareBox id={id} shareCode={shareCode} published={status === "PUBLISHED"} onChange={setShareCode} />}
 
         <div className="grid2">
           <section aria-labelledby="sel">

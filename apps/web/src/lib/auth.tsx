@@ -44,14 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onExpired = () => {
       applyMe(null);
-      router.replace("/login?expired=1");
+      const here = window.location.pathname;
+      router.replace(`/login?expired=1${here !== "/" && here !== "/login" ? `&next=${encodeURIComponent(here)}` : ""}`);
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, [applyMe, router]);
 
   useEffect(() => {
-    if (!loading && !me && pathname !== "/login") router.replace("/login");
+    if (!loading && !me && pathname !== "/login") router.replace(pathname && pathname !== "/" ? `/login?next=${encodeURIComponent(pathname)}` : "/login");
   }, [loading, me, pathname, router]);
 
   const value = useMemo<AuthState>(

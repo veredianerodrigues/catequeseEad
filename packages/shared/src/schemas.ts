@@ -67,6 +67,7 @@ export const questionnaireInputSchema = z.object({
   description: z.string().trim().max(2000).default(""),
   status: z.enum(QUESTION_STATUSES),
   shuffleAlternatives: z.boolean().default(false),
+  listed: z.boolean().default(false),
   questionIds: z.array(id).max(500).default([]),
 });
 export type QuestionnaireInput = z.infer<typeof questionnaireInputSchema>;

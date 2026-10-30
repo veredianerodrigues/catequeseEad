@@ -78,6 +78,7 @@ function LoginInner() {
       )}
       {!CLIENT_ID && !DEV_AUTH ? <p className="field-error">Login indisponível: NEXT_PUBLIC_GOOGLE_CLIENT_ID não configurado.</p> : <div ref={button} aria-label="Entrar com Google" />}
       {error && <p className="field-error" role="alert">{error}</p>}
+      <p className="hint"><a href="/privacidade">Privacidade</a> · <a href="/termos">Termos</a></p>
     </main>
   );
 }

@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyMe, router]);
 
   useEffect(() => {
-    if (!loading && !me && pathname !== "/login") router.replace(pathname && pathname !== "/" ? `/login?next=${encodeURIComponent(pathname)}` : "/login");
+    if (!loading && !me && pathname !== "/login" && pathname !== "/privacidade" && pathname !== "/termos") router.replace(pathname && pathname !== "/" ? `/login?next=${encodeURIComponent(pathname)}` : "/login");
   }, [loading, me, pathname, router]);
 
   const value = useMemo<AuthState>(

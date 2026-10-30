@@ -221,6 +221,17 @@ describe("importação de questões", () => {
     }
   });
 
+  it("importa o arquivo .txt do autor (tipo no cabeçalho) com as 6 questões válidas", async () => {
+    const admin = await login("g-admin", "admin@test.com");
+    const buf = fs.readFileSync(path.join(__dirname, "fixtures", "sacramentos-autor.txt"));
+    const r = await admin.upload("/admin/import/preview", buf, "Assunto Sacramentos.txt");
+    expect(r.status).toBe(200);
+    expect(r.body.subjectName).toBe("Sacramentos");
+    expect(r.body.drafts.map((d: { type: string; errors: string[] }) => [d.type, d.errors.length])).toEqual([
+      ["OPEN", 0], ["MULTIPLE", 0], ["ASSERTIONS", 0], ["TRUE_FALSE", 0], ["MULTIPLE", 0], ["OPEN", 0],
+    ]);
+  });
+
   it("recusa arquivo com mais de um assunto", async () => {
     const admin = await login("g-admin", "admin@test.com");
     const r = await send(admin, "Assunto: A\nQuestão 1\nTipo: aberta\nEnunciado: x\n\nAssunto: B\nQuestão 2\nTipo: aberta\nEnunciado: y\n");

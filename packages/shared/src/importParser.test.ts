@@ -117,3 +117,46 @@ describe("arquivo de exemplo distribuído", () => {
     expect(r.drafts.flatMap(validateDraft)).toEqual([]);
   });
 });
+
+describe("formato do autor (tipo no cabeçalho, itens e alternativas soltos)", () => {
+  it("lê o arquivo de Sacramentos: 6 questões, todas válidas", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const file = fileURLToPath(new URL("../../../apps/api/test/fixtures/sacramentos-autor.txt", import.meta.url));
+    const r = parseQuestionsText(readFileSync(file, "utf8"));
+    expect(r.subjectNames).toEqual(["Sacramentos"]);
+    expect(r.drafts.map((d) => d.type)).toEqual(["OPEN", "MULTIPLE", "ASSERTIONS", "TRUE_FALSE", "MULTIPLE", "OPEN"]);
+    expect(r.drafts.flatMap(validateDraft)).toEqual([]);
+
+    const [open, multi, assert, tf, multi2, open2] = r.drafts;
+    expect(open!.expectedAnswer).toContain("Iniciação cristã: Batismo");
+    expect(open!.expectedAnswer).toContain("Ordem e Matrimônio.");
+    expect(multi!.alternatives.map((a) => a.text)).toEqual(["Batismo", "Matrimônio", "Eucaristia", "Unção dos Enfermos", "Confirmação (Crisma)", "Ordem"]);
+    expect(multi!.alternatives.map((a) => a.isCorrect)).toEqual([true, false, true, false, true, false]);
+    expect(multi!.statement).not.toContain(" / ");
+    expect(assert!.items).toHaveLength(4);
+    expect(assert!.items[0]!.text).toBe("A Igreja Católica reconhece sete sacramentos.");
+    expect(assert!.alternatives.map((a) => a.isCorrect)).toEqual([false, true, false, false]);
+    expect(assert!.statement).toBe("Sobre os sacramentos da Igreja, analise as afirmações:");
+    expect(tf!.items.map((i) => i.isTrue)).toEqual([true, false, true, false, true]);
+    expect(tf!.items[0]!.text).toBe("A Penitência (Reconciliação) é um sacramento de cura.");
+    expect(multi2!.alternatives.map((a) => a.isCorrect)).toEqual([true, false, true, false, true, false]);
+    expect(open2!.expectedAnswer).toContain("Observação: aceitar respostas");
+  });
+
+  it("aceita cabeçalho com separadores diferentes, enunciado logo após o cabeçalho e cercas de código", () => {
+    const r = parseQuestionsText("```\nAssunto: Credo\n\nQUESTÃO 1 - Análise de assertivas (Credo)\nSobre o Credo:\nI. Um.\nII. Dois.\nA) Apenas I\nB) Apenas II\nResposta: A\n```");
+    expect(r.drafts).toHaveLength(1);
+    expect(r.drafts[0]!.type).toBe("ASSERTIONS");
+    expect(r.drafts[0]!.statement).toBe("Sobre o Credo:");
+    expect(validateDraft(r.drafts[0]!)).toEqual([]);
+  });
+
+  it("responde pelo texto da alternativa e acusa texto que não confere", () => {
+    const base = "Questão 1\nTipo: multipla_selecao\nEnunciado: x\nAlternativas:\na) Fé\nb) Esperança\nc) Caridade\n";
+    const ok = parseQuestionsText(base + "Resposta: Fé e Caridade.");
+    expect(ok.drafts[0]!.alternatives.map((a) => a.isCorrect)).toEqual([true, false, true]);
+    const bad = parseQuestionsText(base + "Resposta: Fé e Ira.");
+    expect(validateDraft(bad.drafts[0]!).join()).toMatch(/incompatível com as alternativas/);
+  });
+});

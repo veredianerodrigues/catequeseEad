@@ -143,11 +143,12 @@ export default function ImportPage() {
 
         <h3>Regras gerais</h3>
         <ul>
-          <li><strong>Formatos:</strong> .docx, .doc ou .md (até 5 MB). Só o texto é lido; imagens e tabelas do arquivo são ignoradas — adicione-as depois, editando a questão.</li>
+          <li><strong>Formatos:</strong> .docx, .doc, .md ou .txt (até 5 MB). Só o texto é lido; imagens e tabelas do arquivo são ignoradas — adicione-as depois, editando a questão.</li>
           <li><strong>Um assunto por arquivo.</strong> A primeira linha é <code>Assunto: Nome do assunto</code>. Se o assunto já existir, ele é sugerido; se não, você pode criá-lo aqui. Arquivos com mais de um assunto são recusados.</li>
           <li><strong>Cada questão começa</strong> com a linha <code>Questão 1</code>, <code>Questão 2</code>… (somente isso na linha) e vem seguida dos campos abaixo, cada um iniciado pelo rótulo e dois-pontos.</li>
           <li><strong>Campos:</strong> <code>Tipo:</code> · <code>Enunciado:</code> · <code>Itens:</code> · <code>Alternativas:</code> · <code>Resposta:</code> · <code>Explicação:</code>. Enunciado, resposta e explicação podem ocupar várias linhas, até o próximo rótulo.</li>
           <li><strong>Itens e alternativas:</strong> um por linha. Prefixos como <code>I.</code>, <code>1.</code>, <code>a)</code> ou <code>A)</code> são opcionais. As alternativas viram A, B, C… na ordem em que aparecem.</li>
+          <li><strong>Também são aceitos:</strong> o tipo no próprio cabeçalho (<code>QUESTÃO 1 – Múltipla seleção</code>, sem a linha <code>Tipo:</code>); itens (<code>I.</code>, <code>( )</code>) e alternativas (<code>A)</code>) escritos logo após o enunciado, sem os rótulos <code>Itens:</code>/<code>Alternativas:</code>; alternativas numa linha só separadas por <code>/</code>; resposta pelo texto da alternativa (<code>Batismo e Ordem</code>); e <code>Resposta esperada:</code> nas questões abertas. Sempre confira a pré-visualização.</li>
           <li><strong>Explicação</strong> é opcional e só administradores a veem. Não use blocos de código nem repita a mesma questão.</li>
         </ul>
 

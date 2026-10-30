@@ -25,6 +25,7 @@ const csp = [
 const config: NextConfig = {
   transpilePackages: ["@quiz/shared"],
   poweredByHeader: false,
+  devIndicators: false,
   experimental: { proxyClientMaxBodySize: "25mb" },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/:path*` }];

@@ -3,13 +3,14 @@ import { z } from "zod";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { conflict, HttpError, notFound } from "../lib/errors";
 import type { AuthUser } from "../lib/auth";
+import { answerPhotoUrl } from "../lib/answerPhoto";
 
 const paramId = (v: unknown) => String(v);
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const gradeSchema = z.object({ isCorrect: z.boolean().nullable() });
 
 type Given =
-  | { kind: "text"; text: string | null }
+  | { kind: "text"; text: string | null; photoUrl?: string | null }
   | { kind: "choice"; selected: { label: string; text: string }[] }
   | { kind: "items"; items: { label: string; text: string; value: boolean | null }[] };
 
@@ -38,7 +39,7 @@ function present(question: QuestionFull, alternativeOrder: unknown, answer: Answ
   let matchesKey: boolean | null = null;
 
   if (question.type === "OPEN") {
-    given = { kind: "text", text: answer?.text ?? null };
+    given = { kind: "text", text: answer?.text ?? null, photoUrl: answer?.photoKey ? answerPhotoUrl(answer.attemptId, answer.questionId, answer.updatedAt) : null };
     key = { kind: "text", text: question.expectedAnswer };
   } else if (question.type === "TRUE_FALSE") {
     const byItem = new Map(answer?.items.map((x) => [x.itemId, x.value]) ?? []);

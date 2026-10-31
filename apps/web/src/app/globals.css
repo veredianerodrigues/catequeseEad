@@ -319,3 +319,8 @@ pre.example { background: var(--bg); border: 1px solid var(--border); border-rad
   .who { gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
   .who > span:first-child { display: none; }
 }
+
+/* Foto na resposta aberta */
+.photo-answer { display: flex; flex-direction: column; gap: .6rem; align-items: flex-start; }
+.photo-answer img, .answer-photo { display: block; max-width: 100%; max-height: 360px; border-radius: var(--radius-md); border: var(--stroke) solid var(--border); background: var(--surface); }
+.answer-photo { max-height: 240px; margin-top: .4rem; }

@@ -169,7 +169,7 @@ export type AttemptQuestionView = {
   alternatives: { id: string; label: string; text: string }[];
   /// Itens (assertivas I..IV ou afirmações de V/F), sem gabarito.
   items: { id: string; label: string; text: string }[];
-  answer: { text: string | null; alternativeIds: string[]; items: { itemId: string; value: boolean }[] } | null;
+  answer: { text: string | null; alternativeIds: string[]; items: { itemId: string; value: boolean }[]; /** Caminho (da API) da foto anexada, quando houver. */ photoUrl: string | null } | null;
 };
 
 export type AttemptView = {

@@ -249,6 +249,10 @@ model Answer {
   attemptId  String
   questionId String
   text       String?  @db.Text
+  /// Foto anexada à resposta aberta (arquivo em UPLOAD_DIR/answers). Só quem respondeu e quem avalia pode vê-la.
+  photoKey   String?  @unique
+  photoMime  String?
+  photoSize  Int?
   /// Avaliação do administrador: true = correta, false = errada, nulo = ainda não avaliada.
   isCorrect  Boolean?
   gradedById String?

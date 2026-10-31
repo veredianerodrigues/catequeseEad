@@ -1,10 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Router } from "express";
+import multer from "multer";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { answerInputSchema, progressInputSchema, shuffle, type AttemptView } from "@quiz/shared";
+import { answerInputSchema, LIMITS, progressInputSchema, shuffle, type AttemptView } from "@quiz/shared";
 import type { Config } from "../config";
-import { conflict, notFound, unprocessable } from "../lib/errors";
+import { answerPhotoUrl, removeStoredFile, storedPath, writeAnswerPhoto } from "../lib/answerPhoto";
+import { conflict, HttpError, notFound, unprocessable } from "../lib/errors";
+import { sniffMime } from "../lib/media";
 
 const paramId = (v: unknown) => String(v);
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -94,7 +97,7 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
       const a = answerByQuestion.get(aq.questionId);
       const alternativeIds = a?.alternatives.map((x) => x.alternativeId) ?? [];
       const itemAnswers = a?.items.map((x) => ({ itemId: x.itemId, value: x.value })) ?? [];
-      if (a && (a.text || alternativeIds.length || itemAnswers.length)) answered++;
+      if (a && (a.text || a.photoKey || alternativeIds.length || itemAnswers.length)) answered++;
       return {
         questionId: aq.questionId,
         position: aq.position,
@@ -103,7 +106,7 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
         // Nunca expor isCorrect ao participante.
         alternatives: sorted.map((alt, i) => ({ id: alt.id, label: LETTERS[i] ?? String(i + 1), text: alt.text })),
         items: aq.question.items.map((it, i) => ({ id: it.id, label: aq.question.type === "ASSERTIONS" ? (ROMAN[i] ?? String(i + 1)) : String(i + 1), text: it.text })),
-        answer: a ? { text: a.text, alternativeIds, items: itemAnswers } : null,
+        answer: a ? { text: a.text, alternativeIds, items: itemAnswers, photoUrl: a.photoKey ? answerPhotoUrl(attemptId, aq.questionId, a.updatedAt) : null } : null,
       };
     });
     return {
@@ -209,6 +212,12 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
       }
 
       if (text === null && alternativeIds.length === 0 && itemAnswers.length === 0) {
+        // Resposta aberta só com foto: apagar o texto mantém a resposta (e a foto).
+        const withPhoto = await tx.answer.findUnique({ where: { attemptId_questionId: { attemptId, questionId } }, select: { photoKey: true } });
+        if (withPhoto?.photoKey) {
+          await tx.answer.update({ where: { attemptId_questionId: { attemptId, questionId } }, data: { text: null } });
+          return { empty: false };
+        }
         await tx.answer.deleteMany({ where: { attemptId, questionId } });
         return { empty: true };
       }
@@ -226,6 +235,82 @@ export function attemptsRouter(prisma: PrismaClient, config: Config, answerLimit
 
     const answered = await prisma.answer.count({ where: { attemptId } });
     res.json({ saved: true, cleared: saved.empty, answered, savedAt: new Date().toISOString() });
+  });
+
+  // ---------- Foto na resposta aberta (1 foto por resposta, até LIMITS.imageBytes) ----------
+  const photoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: LIMITS.imageBytes, files: 1 } });
+
+  r.post("/attempts/:id/answers/:questionId/photo", answerLimiter, photoUpload.single("file"), async (req, res) => {
+    const attemptId = paramId(req.params.id);
+    const questionId = paramId(req.params.questionId);
+    const file = req.file;
+    if (!file) throw new HttpError(400, "Envie a foto no campo 'file'.");
+    const sniffed = sniffMime(file.buffer); // o tipo real vem do conteúdo, não do que o navegador informou
+    if (!sniffed || sniffed.kind !== "IMAGE") throw unprocessable("Envie uma foto nos formatos JPG, PNG ou WebP.");
+
+    const key = await writeAnswerPhoto(config, file.buffer, sniffed.ext);
+    let oldKey = null as string | null;
+    try {
+      const answer = await prisma.$transaction(async (tx) => {
+        const { status } = await lockAttempt(tx, attemptId, req.user!.id);
+        requireInProgress(status);
+        const aq = await tx.attemptQuestion.findUnique({ where: { attemptId_questionId: { attemptId, questionId } }, select: { question: { select: { type: true } } } });
+        if (!aq) throw notFound("Questão da tentativa");
+        if (aq.question.type !== "OPEN") throw unprocessable("Só é possível enviar foto em questões de resposta aberta.");
+        const existing = await tx.answer.findUnique({ where: { attemptId_questionId: { attemptId, questionId } }, select: { photoKey: true } });
+        oldKey = existing?.photoKey ?? null;
+        const photo = { photoKey: key, photoMime: sniffed.mime, photoSize: file.size };
+        return tx.answer.upsert({
+          where: { attemptId_questionId: { attemptId, questionId } },
+          create: { attemptId, questionId, text: null, ...photo },
+          update: photo,
+        });
+      });
+      await removeStoredFile(config, oldKey); // só depois de gravar a nova com sucesso
+      const answered = await prisma.answer.count({ where: { attemptId } });
+      res.json({ saved: true, photoUrl: answerPhotoUrl(attemptId, questionId, answer.updatedAt), answered, savedAt: new Date().toISOString() });
+    } catch (e) {
+      await removeStoredFile(config, key);
+      throw e;
+    }
+  });
+
+  r.delete("/attempts/:id/answers/:questionId/photo", answerLimiter, async (req, res) => {
+    const attemptId = paramId(req.params.id);
+    const questionId = paramId(req.params.questionId);
+    let oldKey = null as string | null;
+    await prisma.$transaction(async (tx) => {
+      const { status } = await lockAttempt(tx, attemptId, req.user!.id);
+      requireInProgress(status);
+      const existing = await tx.answer.findUnique({ where: { attemptId_questionId: { attemptId, questionId } }, select: { photoKey: true, text: true } });
+      if (!existing?.photoKey) return;
+      oldKey = existing.photoKey;
+      if (existing.text) await tx.answer.update({ where: { attemptId_questionId: { attemptId, questionId } }, data: { photoKey: null, photoMime: null, photoSize: null } });
+      else await tx.answer.delete({ where: { attemptId_questionId: { attemptId, questionId } } }); // sem texto e sem foto: deixa de ser resposta
+    });
+    await removeStoredFile(config, oldKey);
+    res.json({ saved: true, answered: await prisma.answer.count({ where: { attemptId } }) });
+  });
+
+  // Ver a foto: só quem respondeu e administradores que avaliam o questionário (o criador, ou qualquer admin se for antigo).
+  r.get("/attempts/:id/answers/:questionId/photo", async (req, res) => {
+    const answer = await prisma.answer.findUnique({
+      where: { attemptId_questionId: { attemptId: paramId(req.params.id), questionId: paramId(req.params.questionId) } },
+      select: { photoKey: true, photoMime: true, attempt: { select: { userId: true, questionnaire: { select: { createdById: true } } } } },
+    });
+    const user = req.user!;
+    const isOwner = answer?.attempt.userId === user.id;
+    const creator = answer?.attempt.questionnaire.createdById;
+    const isReviewer = user.role === "ADMIN" && (!creator || creator === user.id);
+    // 404 também quando não há permissão: não revela que a foto existe.
+    if (!answer?.photoKey || !answer.photoMime || (!isOwner && !isReviewer)) throw notFound("Foto");
+    const file = storedPath(config, answer.photoKey);
+    if (!fs.existsSync(file)) throw notFound("Foto");
+    res.setHeader("Content-Type", answer.photoMime);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("Cache-Control", "private, no-store");
+    fs.createReadStream(file).pipe(res);
   });
 
   r.patch("/attempts/:id/progress", async (req, res) => {

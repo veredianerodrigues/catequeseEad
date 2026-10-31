@@ -7,13 +7,15 @@ import type { AttemptQuestionView, AttemptView } from "@quiz/shared";
 import { api, ApiError, errorLines } from "@/lib/api";
 import { Shell } from "@/components/Shell";
 import { RichContent } from "@/components/RichContent";
+import { prepareImage } from "@/lib/image";
 
-type LocalAnswer = { text: string; alternativeIds: string[]; items: { itemId: string; value: boolean }[] };
-const EMPTY: LocalAnswer = { text: "", alternativeIds: [], items: [] };
+type LocalAnswer = { text: string; alternativeIds: string[]; items: { itemId: string; value: boolean }[]; photoUrl: string | null };
+const EMPTY: LocalAnswer = { text: "", alternativeIds: [], items: [], photoUrl: null };
+type PhotoState = { busy: boolean; error: string | null };
 type SaveState = "saving" | "saved" | "error";
 
 const DEBOUNCE_MS = 800;
-const hasContent = (a?: LocalAnswer) => !!a && (a.text.trim().length > 0 || a.alternativeIds.length > 0 || a.items.length > 0);
+const hasContent = (a?: LocalAnswer) => !!a && (a.text.trim().length > 0 || !!a.photoUrl || a.alternativeIds.length > 0 || a.items.length > 0);
 
 export default function AttemptPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,9 @@ export default function AttemptPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [photoState, setPhotoState] = useState<Record<string, PhotoState>>({});
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const galleryInput = useRef<HTMLInputElement>(null);
 
   // Valores mais recentes e controle de gravações (por questão) fora do ciclo de render.
   const latest = useRef<Record<string, LocalAnswer>>({});
@@ -40,7 +45,7 @@ export default function AttemptPage() {
     try {
       const a = await api.get<AttemptView>(`/attempts/${id}`);
       const initial: Record<string, LocalAnswer> = {};
-      for (const q of a.questions) if (q.answer) initial[q.questionId] = { text: q.answer.text ?? "", alternativeIds: q.answer.alternativeIds, items: q.answer.items };
+      for (const q of a.questions) if (q.answer) initial[q.questionId] = { text: q.answer.text ?? "", alternativeIds: q.answer.alternativeIds, items: q.answer.items, photoUrl: q.answer.photoUrl };
       latest.current = initial;
       setAnswers(initial);
       setAttempt(a);
@@ -107,6 +112,44 @@ export default function AttemptPage() {
     const results = await Promise.all([...pending].map((qid) => save(qid)));
     return results.every(Boolean);
   }, [save]);
+
+  /** Envia (ou troca) a foto da resposta aberta. Só mostra a foto depois que a API confirmar. */
+  async function sendPhoto(q: AttemptQuestionView, file: File | undefined) {
+    if (!file) return;
+    const qid = q.questionId;
+    setPhotoState((p) => ({ ...p, [qid]: { busy: true, error: null } }));
+    try {
+      const ready = await prepareImage(file);
+      const r = await api.upload<{ photoUrl: string }>(`/attempts/${id}/answers/${qid}/photo`, ready);
+      const next = { ...(latest.current[qid] ?? EMPTY), photoUrl: r.photoUrl };
+      latest.current[qid] = next;
+      setAnswers((p) => ({ ...p, [qid]: next }));
+      setPhotoState((p) => ({ ...p, [qid]: { busy: false, error: null } }));
+      setOffline(false);
+      mark(qid, "saved");
+    } catch (e) {
+      const message = e instanceof ApiError ? (e.status === 413 ? "A foto passou do limite de 5 MB." : errorLines(e)[0] ?? "Não foi possível enviar a foto.") : e instanceof Error ? e.message : "Não foi possível enviar a foto.";
+      if (e instanceof ApiError && e.isNetwork) setOffline(true);
+      if (e instanceof ApiError && e.status === 409) void load();
+      setPhotoState((p) => ({ ...p, [qid]: { busy: false, error: message } }));
+    }
+  }
+
+  async function dropPhoto(q: AttemptQuestionView) {
+    const qid = q.questionId;
+    setPhotoState((p) => ({ ...p, [qid]: { busy: true, error: null } }));
+    try {
+      await api.del(`/attempts/${id}/answers/${qid}/photo`);
+      const next = { ...(latest.current[qid] ?? EMPTY), photoUrl: null };
+      latest.current[qid] = next;
+      setAnswers((p) => ({ ...p, [qid]: next }));
+      setPhotoState((p) => ({ ...p, [qid]: { busy: false, error: null } }));
+      mark(qid, "saved");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) void load();
+      setPhotoState((p) => ({ ...p, [qid]: { busy: false, error: errorLines(e)[0] ?? "Não foi possível remover a foto." } }));
+    }
+  }
 
   function change(q: AttemptQuestionView, next: LocalAnswer, immediate: boolean) {
     latest.current[q.questionId] = next;
@@ -244,6 +287,41 @@ export default function AttemptPage() {
               onChange={(e) => change(q, { ...a, text: e.target.value }, false)}
               onBlur={() => !readOnly && timers.current.has(q.questionId) && void save(q.questionId)}
             />
+          </div>
+        )}
+
+        {q.type === "OPEN" && (
+          <div className="photo-answer">
+            <span className="label">Foto da resposta {readOnly ? "" : "(opcional)"}</span>
+            {a.photoUrl ? (
+              <a href={`/api${a.photoUrl}`} target="_blank" rel="noopener noreferrer" title="Abrir a foto em tamanho grande">
+                <img src={`/api${a.photoUrl}`} alt="Foto enviada como resposta" />
+              </a>
+            ) : readOnly ? (
+              <span className="hint">Nenhuma foto enviada.</span>
+            ) : null}
+            {!readOnly && (
+              <>
+                <div className="row">
+                  <button type="button" className="btn small ghost" disabled={photoState[q.questionId]?.busy} onClick={() => cameraInput.current?.click()}>
+                    📷 Tirar foto
+                  </button>
+                  <button type="button" className="btn small ghost" disabled={photoState[q.questionId]?.busy} onClick={() => galleryInput.current?.click()}>
+                    🖼 {a.photoUrl ? "Trocar por outra foto" : "Escolher uma foto"}
+                  </button>
+                  {a.photoUrl && (
+                    <button type="button" className="link danger" disabled={photoState[q.questionId]?.busy} onClick={() => void dropPhoto(q)}>
+                      Remover foto
+                    </button>
+                  )}
+                </div>
+                <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { void sendPhoto(q, e.target.files?.[0]); e.target.value = ""; }} />
+                <input ref={galleryInput} type="file" accept="image/jpeg,image/png,image/webp,image/*" hidden onChange={(e) => { void sendPhoto(q, e.target.files?.[0]); e.target.value = ""; }} />
+                <p className="hint" style={{ margin: 0 }}>Você pode escrever, enviar uma foto ou os dois. Uma foto por questão (JPG, PNG ou WebP); fotos grandes são reduzidas sozinhas.</p>
+              </>
+            )}
+            {photoState[q.questionId]?.busy && <p className="hint" role="status" style={{ margin: 0 }}>Enviando a foto…</p>}
+            {photoState[q.questionId]?.error && <p className="field-error" role="alert" style={{ margin: 0 }}>{photoState[q.questionId]?.error}</p>}
           </div>
         )}
 

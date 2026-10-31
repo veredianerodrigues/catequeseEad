@@ -5,7 +5,7 @@ import type { AttemptStatus, QuestionType } from "@quiz/shared";
 import { api, errorLines } from "@/lib/api";
 
 export type Given =
-  | { kind: "text"; text: string | null }
+  | { kind: "text"; text: string | null; photoUrl?: string | null }
   | { kind: "choice"; selected: { label: string; text: string }[] }
   | { kind: "items"; items: { label: string; text: string; value: boolean | null }[] };
 
@@ -22,7 +22,18 @@ export function StatusTag({ status }: { status: AttemptStatus }) {
 
 /** Resposta do participante ou gabarito, em formato legível. */
 export function AnswerCell({ value, empty = "— sem resposta —" }: { value: Given; empty?: string }) {
-  if (value.kind === "text") return value.text ? <div className="pre">{value.text}</div> : <span className="hint">{empty}</span>;
+  if (value.kind === "text") {
+    return (
+      <>
+        {value.text ? <div className="pre">{value.text}</div> : !value.photoUrl && <span className="hint">{empty}</span>}
+        {value.photoUrl && (
+          <a href={`/api${value.photoUrl}`} target="_blank" rel="noopener noreferrer" title="Abrir a foto em tamanho grande">
+            <img className="answer-photo" src={`/api${value.photoUrl}`} alt="Foto enviada como resposta" />
+          </a>
+        )}
+      </>
+    );
+  }
   if (value.kind === "choice") {
     return value.selected.length ? (
       <ul className="plain">{value.selected.map((s) => <li key={s.label}><strong>{s.label})</strong> {s.text}</li>)}</ul>

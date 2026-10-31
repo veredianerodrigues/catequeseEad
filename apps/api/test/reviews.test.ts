@@ -91,7 +91,7 @@ describe("fluxo de avaliação", () => {
     expect(d.user.email).toBe("user@test.com");
     const by = (type: string) => d.rows.find((r: Row) => r.question.type === type) as Row;
 
-    expect(by("OPEN").given).toEqual({ kind: "text", text: "É um presente de Deus" });
+    expect(by("OPEN").given).toEqual({ kind: "text", text: "É um presente de Deus", photoUrl: null });
     expect(by("OPEN").key).toEqual({ kind: "text", text: "Dom de Deus" });
     expect(by("OPEN").matchesKey).toBeNull();
 

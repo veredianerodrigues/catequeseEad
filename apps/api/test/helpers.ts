@@ -11,7 +11,7 @@ export const prisma = new PrismaClient({
   datasources: { db: { url: process.env.TEST_DATABASE_URL ?? "mysql://root:root@localhost:3307/quiz_test" } },
 });
 
-const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "quiz-uploads-"));
+export const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "quiz-uploads-"));
 const config = loadConfig({ NODE_ENV: "test", ADMIN_EMAILS: "admin@test.com", UPLOAD_DIR: uploadDir, APP_ORIGIN: ORIGIN });
 
 /** Token de teste = "sub|email|nome". */

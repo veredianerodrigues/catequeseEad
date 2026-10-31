@@ -7,7 +7,7 @@ import { ZodError } from "zod";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import multer from "multer";
 import type { Config } from "./config";
-import { csrfProtection, loadSession, requireAdmin, requireAuth } from "./lib/auth";
+import { blockUntilPasswordChanged, csrfProtection, loadSession, requireAdmin, requireAuth } from "./lib/auth";
 import { HttpError } from "./lib/errors";
 import { adminRouter } from "./routes/admin";
 import { attemptsRouter } from "./routes/attempts";
@@ -43,6 +43,7 @@ export function createApp({ prisma, config, verifyGoogle }: AppDeps) {
 
   app.use(loadSession(prisma));
   app.use(csrfProtection(config));
+  app.use(blockUntilPasswordChanged);
 
   app.use("/auth", authRouter(prisma, config, verifyGoogle, limiter(15 * 60_000, 30)));
   app.use("/admin", requireAdmin, adminRouter(prisma, config, limiter(60_000, 30)));

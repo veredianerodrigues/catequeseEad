@@ -45,6 +45,7 @@ export function Shell({ children, adminOnly = false, wide = false }: { children:
         <div className="who">
           <span title={me.email}>{me.name}</span>
           <ThemeToggle />
+          {me.hasPassword && <Link href="/senha">Trocar senha</Link>}
           <button className="btn small ghost" onClick={() => void signOut()}>Sair</button>
         </div>
       </header>

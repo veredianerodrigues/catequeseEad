@@ -9,6 +9,9 @@ type AuthState = {
   me: Me | null;
   loading: boolean;
   signIn: (idToken: string) => Promise<void>;
+  signInPassword: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -52,6 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyMe, router]);
 
   useEffect(() => {
+    if (!loading && me?.mustChangePassword && pathname !== "/senha") router.replace("/senha");
+  }, [loading, me, pathname, router]);
+
+  useEffect(() => {
     if (!loading && !me && pathname !== "/login" && pathname !== "/privacidade" && pathname !== "/termos") router.replace(pathname && pathname !== "/" ? `/login?next=${encodeURIComponent(pathname)}` : "/login");
   }, [loading, me, pathname, router]);
 
@@ -60,6 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       me,
       loading,
       signIn: async (idToken) => applyMe(await api.post<Me>("/auth/google", { idToken })),
+      signInPassword: async (email, password) => applyMe(await api.post<Me>("/auth/login", { email, password })),
+      register: async (name, email, password) => applyMe(await api.post<Me>("/auth/register", { name, email, password })),
+      changePassword: async (currentPassword, newPassword) => applyMe(await api.post<Me>("/auth/password", { currentPassword, newPassword })),
       signOut: async () => {
         await api.post("/auth/logout").catch(() => undefined);
         applyMe(null);

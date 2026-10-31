@@ -47,11 +47,19 @@ enum MediaKind {
 
 model User {
   id        String   @id @default(cuid())
-  googleSub String   @unique
+  /// Nulo para contas criadas com e-mail e senha.
+  googleSub String?  @unique
   email     String   @unique
   name      String
   role      Role     @default(USER)
   createdAt DateTime @default(now())
+
+  /// Hash scrypt da senha (contas por e-mail/senha). Nulo para contas Google.
+  passwordHash String? @db.VarChar(255)
+  /// Google confirma o e-mail; contas por senha nascem sem confirmação.
+  emailVerified Boolean @default(false)
+  /// Senha temporária definida pelo administrador: obriga a trocar antes de usar o sistema.
+  mustChangePassword Boolean @default(false)
 
   sessions Session[]
   attempts Attempt[]

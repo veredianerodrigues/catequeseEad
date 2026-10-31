@@ -28,6 +28,30 @@ const richDoc = z.object({ type: z.literal("doc") }).passthrough();
 
 export const googleLoginSchema = z.object({ idToken: z.string().min(8).max(4096) });
 
+// ---------- Acesso por e-mail e senha ----------
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 128;
+
+const emailField = z.string().trim().toLowerCase().max(190, "E-mail muito longo").email("Digite um e-mail válido");
+const passwordField = z.string().min(PASSWORD_MIN, `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres`).max(PASSWORD_MAX, "Senha muito longa");
+
+/** Nome completo: pelo menos nome e sobrenome. */
+export const fullNameSchema = z
+  .string()
+  .trim()
+  .max(120, "Nome muito longo")
+  .refine((v) => v.split(/\s+/).filter((p) => p.length >= 2).length >= 2, "Informe o nome completo (nome e sobrenome)");
+
+export const registerSchema = z
+  .object({ name: fullNameSchema, email: emailField, password: passwordField })
+  .refine((v) => v.password.toLowerCase() !== v.email, { path: ["password"], message: "A senha não pode ser igual ao e-mail" });
+
+export const passwordLoginSchema = z.object({ email: emailField, password: z.string().min(1, "Digite a senha").max(PASSWORD_MAX) });
+
+export const changePasswordSchema = z
+  .object({ currentPassword: z.string().min(1, "Digite a senha atual").max(PASSWORD_MAX), newPassword: passwordField })
+  .refine((v) => v.newPassword !== v.currentPassword, { path: ["newPassword"], message: "A nova senha precisa ser diferente da atual" });
+
 export const alternativeInputSchema = z.object({
   id: id.optional(),
   text: z.string().trim().min(1, "Alternativa vazia").max(2000),
@@ -135,7 +159,7 @@ export const TYPE_LABELS: Record<QuestionType, string> = {
 };
 
 // Tipos de resposta da API
-export type Me = { id: string; name: string; email: string; role: Role; csrfToken: string };
+export type Me = { id: string; name: string; email: string; role: Role; csrfToken: string; mustChangePassword: boolean; hasPassword: boolean };
 
 export type AttemptQuestionView = {
   questionId: string;

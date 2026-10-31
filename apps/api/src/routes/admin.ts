@@ -16,6 +16,7 @@ import type { Config } from "../config";
 import { conflict, HttpError, notFound, unprocessable } from "../lib/errors";
 import { isFkError, questionInclude, saveQuestion } from "../lib/questions";
 import { sniffMime } from "../lib/media";
+import { hashPassword, temporaryPassword } from "../lib/password";
 import { newShareCode } from "../lib/shareCode";
 import { importRouter } from "./import";
 import { reviewsRouter } from "./reviews";
@@ -197,7 +198,24 @@ export function adminRouter(prisma: PrismaClient, config: Config, uploadLimiter:
 
   // ---------- Usuários ----------
   r.get("/users", async (_req, res) => {
-    res.json(await prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, role: true, createdAt: true } }));
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, email: true, role: true, createdAt: true, passwordHash: true, emailVerified: true, mustChangePassword: true },
+    });
+    // Nunca expõe o hash: só informa como a conta entra.
+    res.json(users.map(({ passwordHash, ...u }) => ({ ...u, authMethod: passwordHash ? "password" : "google" })));
+  });
+  // Senha temporária para quem esqueceu a senha (contas por e-mail/senha). Aparece uma única vez; a pessoa troca no primeiro acesso.
+  r.post("/users/:id/reset-password", async (req, res) => {
+    const id = paramId(req.params.id);
+    if (id === req.user!.id) throw conflict("Para trocar a sua própria senha, use a opção de trocar senha.");
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, passwordHash: true } });
+    if (!user) throw notFound("Usuário");
+    if (!user.passwordHash) throw conflict("Esta conta entra com o Google e não tem senha para redefinir.");
+    const password = temporaryPassword();
+    await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(password), mustChangePassword: true } });
+    await prisma.session.deleteMany({ where: { userId: id } });
+    res.json({ temporaryPassword: password });
   });
   r.patch("/users/:id/role", async (req, res) => {
     const { role } = roleInputSchema.parse(req.body);

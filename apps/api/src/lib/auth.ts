@@ -6,7 +6,7 @@ import { forbidden, HttpError, unauthorized } from "./errors";
 
 export const SESSION_COOKIE = "sid";
 
-export type AuthUser = { id: string; name: string; email: string; role: Role };
+export type AuthUser = { id: string; name: string; email: string; role: Role; mustChangePassword: boolean; hasPassword: boolean };
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -44,8 +44,8 @@ export function loadSession(prisma: PrismaClient): RequestHandler {
     if (typeof token === "string" && token) {
       const session = await prisma.session.findUnique({ where: { id: sha256(token) }, include: { user: true } });
       if (session && session.expiresAt > new Date()) {
-        const { id, name, email, role } = session.user;
-        req.user = { id, name, email, role };
+        const { id, name, email, role, mustChangePassword, passwordHash } = session.user;
+        req.user = { id, name, email, role, mustChangePassword, hasPassword: passwordHash !== null };
         req.csrfToken = session.csrfToken;
       }
     }
@@ -74,5 +74,13 @@ export const requireAuth: RequestHandler = (req, _res, next) => (req.user ? next
 export const requireAdmin: RequestHandler = (req: Request, _res: Response, next: NextFunction) => {
   if (!req.user) return next(unauthorized());
   if (req.user.role !== "ADMIN") return next(forbidden());
+  next();
+};
+
+/** Quem entrou com senha temporária (definida pelo administrador) só pode trocar a senha ou sair. */
+export const blockUntilPasswordChanged: RequestHandler = (req, _res, next) => {
+  if (req.user?.mustChangePassword && !req.path.startsWith("/auth/")) {
+    return next(new HttpError(403, "Troque a senha temporária para continuar.", { code: "MUST_CHANGE_PASSWORD" }));
+  }
   next();
 };

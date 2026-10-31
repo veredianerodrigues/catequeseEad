@@ -6,6 +6,7 @@ import { errorLines } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LoginBackground } from "@/components/LoginBackground";
+import { PasswordAccess } from "@/components/PasswordAccess";
 
 type GoogleId = {
   initialize: (o: { client_id: string; callback: (r: { credential: string }) => void }) => void;
@@ -85,6 +86,7 @@ function LoginInner() {
       )}
       {!CLIENT_ID && !DEV_AUTH ? <p className="field-error">Login indisponível: NEXT_PUBLIC_GOOGLE_CLIENT_ID não configurado.</p> : <div ref={button} aria-label="Entrar com Google" />}
       {error && <p className="field-error" role="alert">{error}</p>}
+      <PasswordAccess />
       <p className="hint"><a href="/privacidade">Privacidade</a> · <a href="/termos">Termos</a></p>
     </main>
     </>

@@ -26,29 +26,6 @@
   --shadow-btn: 0 4px 0 #1a3399;
   --shadow-btn-down: 0 1px 0 #1a3399;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #101733;
-    --surface: #1a2346;
-    --text: #eef2ff;
-    --muted: #aab4d4;
-    --border: #34406b;
-    --primary: #8fb0ff;
-    --primary-text: #0b1233;
-    --sky: #4aa8ff;
-    --sky-bg: #1c3560;
-    --accent: #ff9a3c;
-    --accent-text: #2b1500;
-    --accent-ink: #ffb366;
-    --ok: #9fd0ff;
-    --ok-bg: #1c3560;
-    --warn-bg: #4a2b0a;
-    --err: #ff9d8f;
-    --shadow-pop: 0 4px 0 #0a0f24;
-    --shadow-btn: 0 4px 0 #4a67b8;
-    --shadow-btn-down: 0 1px 0 #4a67b8;
-  }
-}
 :root[data-theme="dark"] {
   --bg: #101733;
   --surface: #1a2346;
@@ -71,7 +48,6 @@
   --shadow-btn-down: 0 1px 0 #4a67b8;
 }
 :root { color-scheme: light; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
 :root[data-theme="dark"] { color-scheme: dark; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

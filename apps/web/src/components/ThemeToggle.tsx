@@ -2,45 +2,43 @@
 
 import { useEffect, useState } from "react";
 
-type Theme = "auto" | "light" | "dark";
+type Theme = "light" | "dark";
 const KEY = "theme";
-const NEXT: Record<Theme, Theme> = { auto: "light", light: "dark", dark: "auto" };
-const LABEL: Record<Theme, string> = { auto: "Automático", light: "Claro", dark: "Escuro" };
-const ICON: Record<Theme, string> = { auto: "◐", light: "☀", dark: "☾" };
+const LABEL: Record<Theme, string> = { light: "Claro", dark: "Escuro" };
+const ICON: Record<Theme, string> = { light: "☀", dark: "☾" };
 
 function read(): Theme {
   try {
-    const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" ? v : "auto";
+    return localStorage.getItem(KEY) === "dark" ? "dark" : "light";
   } catch {
-    return "auto";
+    return "light";
   }
 }
 
 function apply(t: Theme) {
-  if (t === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", t);
+  if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
   try {
-    if (t === "auto") localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, t);
+    if (t === "dark") localStorage.setItem(KEY, "dark");
+    else localStorage.removeItem(KEY);
   } catch {
     /* navegador sem armazenamento: o tema vale só nesta visita */
   }
 }
 
-/** Alterna Automático (segue o aparelho) → Claro → Escuro. A escolha fica salva neste navegador. */
+/** Alterna Claro (padrão) ↔ Escuro. A escolha fica salva neste navegador. */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("auto");
+  const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => setTheme(read()), []);
 
+  const next: Theme = theme === "light" ? "dark" : "light";
   return (
     <button
       type="button"
       className="btn small ghost theme-toggle"
-      title={`Tema: ${LABEL[theme]}. Clique para trocar.`}
-      aria-label={`Tema: ${LABEL[theme]}. Clique para trocar.`}
+      title={`Tema ${LABEL[theme]}. Mudar para ${LABEL[next].toLowerCase()}.`}
+      aria-label={`Tema ${LABEL[theme]}. Mudar para ${LABEL[next].toLowerCase()}.`}
       onClick={() => {
-        const next = NEXT[theme];
         setTheme(next);
         apply(next);
       }}

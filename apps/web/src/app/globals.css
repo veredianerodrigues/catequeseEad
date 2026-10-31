@@ -209,3 +209,4 @@ details.enun summary { cursor: pointer; color: var(--primary); font-size: .85rem
 pre.example { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1rem; overflow-x: auto; font-size: .88rem; margin: 0; }
 
 .theme-toggle { white-space: nowrap; }
+.theme-corner { position: fixed; top: 12px; right: 16px; z-index: 5; }

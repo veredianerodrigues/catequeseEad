@@ -58,7 +58,7 @@ function LoginInner() {
 
   return (
     <main className="center">
-      <ThemeToggle />
+      <div className="theme-corner"><ThemeToggle /></div>
       <h1>Questionários</h1>
       <p>Entre com sua conta Google para responder e continuar de onde parou.</p>
       {params.get("expired") && <p className="notice" role="alert">Sua sessão expirou. Entre novamente — suas respostas salvas continuam guardadas.</p>}

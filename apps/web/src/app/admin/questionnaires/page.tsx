@@ -34,7 +34,7 @@ export default function QuestionnairesPage() {
 
   return (
     <Shell adminOnly>
-      <div className="row between">
+      <div className="page-head">
         <h1>Questionários</h1>
         <Link className="btn" href="/admin/questionnaires/new">Novo questionário</Link>
       </div>

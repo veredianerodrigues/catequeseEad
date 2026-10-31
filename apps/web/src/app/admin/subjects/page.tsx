@@ -69,7 +69,7 @@ export default function SubjectsPage() {
 
   return (
     <Shell adminOnly>
-      <div className="row between">
+      <div className="page-head">
         <h1>Assuntos</h1>
         <button className="btn" onClick={() => { setForm(EMPTY); setErrors([]); }}>Novo assunto</button>
       </div>

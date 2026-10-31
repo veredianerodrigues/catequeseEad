@@ -249,3 +249,14 @@ pre.example { background: var(--bg); border: 1px solid var(--border); border-rad
 @keyframes art-twinkle { 0%, 100% { opacity: .25; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
 @keyframes art-rise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .9; } 100% { opacity: 0; transform: translateY(-150px); } }
 @media (prefers-reduced-motion: reduce) { .login-art * { animation: none !important; } .art-heart { opacity: 0; } }
+
+/* Acesso por e-mail e senha */
+.access-open { margin-top: .4rem; font: inherit; font-weight: 700; }
+.access { width: 100%; text-align: left; margin-top: .6rem; border-top: var(--stroke) dashed var(--border); padding-top: .8rem; }
+.access h2 { margin: 0 0 .6rem; font-size: 1.1rem; text-align: center; }
+.access-tabs { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-bottom: .8rem; }
+.access-form { gap: .8rem; }
+
+/* Cabeçalho de página com título e botão de ação: o botão não invade o conteúdo de baixo. */
+.page-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; margin-bottom: 1rem; }
+.page-head h1 { margin: 0; }

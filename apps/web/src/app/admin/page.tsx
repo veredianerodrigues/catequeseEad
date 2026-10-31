@@ -54,7 +54,7 @@ export default function AdminQuestionsPage() {
 
   return (
     <Shell adminOnly>
-      <div className="row between">
+      <div className="page-head">
         <h1>Questões</h1>
         <Link className="btn" href="/admin/questions/new">Nova questão</Link>
       </div>

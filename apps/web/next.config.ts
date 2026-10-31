@@ -26,6 +26,8 @@ const config: NextConfig = {
   transpilePackages: ["@quiz/shared"],
   poweredByHeader: false,
   devIndicators: false,
+  // Hospedagem (pnpm em monorepo): saída autossuficiente, com os pacotes copiados de verdade. Só liga com NEXT_STANDALONE=1.
+  ...(process.env.NEXT_STANDALONE === "1" ? { output: "standalone" as const, outputFileTracingRoot: path.resolve(process.cwd(), "../..") } : {}),
   experimental: { proxyClientMaxBodySize: "25mb" },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/:path*` }];

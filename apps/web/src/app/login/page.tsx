@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { errorLines } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { LoginBackground } from "@/components/LoginBackground";
+import { LoginArt } from "@/components/LoginArt";
+import { ChurchLogo } from "@/components/ChurchLogo";
 import { PasswordAccess } from "@/components/PasswordAccess";
 
 type GoogleId = {
@@ -47,7 +48,8 @@ function LoginInner() {
           signIn(credential).catch((e) => setError(errorLines(e)[0] ?? "Falha no login."));
         },
       });
-      g.renderButton(button.current, { theme: "outline", size: "large", text: "signin_with", locale: "pt-BR", width: 280 });
+      // O botão é o oficial do Google (largura máxima permitida: 400).
+      g.renderButton(button.current, { theme: "outline", size: "large", text: "continue_with", logo_alignment: "left", locale: "pt-BR", width: Math.max(220, Math.min(400, window.innerWidth - 56)) });
     };
     if (window.google) return init();
     const script = document.createElement("script");
@@ -59,37 +61,52 @@ function LoginInner() {
   }, [loading, me, signIn]);
 
   return (
-    <>
-    <LoginBackground />
-    <main className="center login-card">
-      <div className="theme-corner"><ThemeToggle /></div>
-      <h1>Saber Catequese</h1>
-      <p className="login-sub">
-        <span>Material de apoio para catequese</span>
-        <span>Paróquia Perpétuo Socorro – Cascavel – PR</span>
-      </p>
-      <p className="login-lead">Entre com sua conta Google para responder e continuar de onde parou.</p>
-      {params.get("expired") && <p className="notice" role="alert">Sua sessão expirou. Entre novamente — suas respostas salvas continuam guardadas.</p>}
-      {DEV_AUTH && (
-        <form
-          className="stack"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
-            signIn(`dev:${email}:${email.split("@")[0]}`).catch((err) => setError(errorLines(err)[0] ?? "Falha no login."));
-          }}
-        >
-          <label htmlFor="dev-email">E-mail (login de desenvolvimento)</label>
-          <input id="dev-email" name="email" type="email" required />
-          <button className="btn" type="submit">Entrar (dev)</button>
-        </form>
-      )}
-      {!CLIENT_ID && !DEV_AUTH ? <p className="field-error">Login indisponível: NEXT_PUBLIC_GOOGLE_CLIENT_ID não configurado.</p> : <div ref={button} aria-label="Entrar com Google" />}
-      {error && <p className="field-error" role="alert">{error}</p>}
-      <PasswordAccess />
-      <p className="hint"><a href="/privacidade">Privacidade</a> · <a href="/termos">Termos</a></p>
-    </main>
-    </>
+    <div className="login-split">
+      <LoginArt />
+      <section className="login-panel">
+        <span className="panel-curve" aria-hidden="true">
+          <svg viewBox="0 0 60 1000" preserveAspectRatio="none"><path d="M60 0 L38 0 C8 180 4 300 30 430 C56 560 52 760 12 1000 L60 1000 Z" /></svg>
+        </span>
+        <div className="theme-corner"><ThemeToggle /></div>
+        <main className="login-content">
+          <ChurchLogo />
+          <h1>Saber Catequese</h1>
+          <div className="login-rule" aria-hidden="true"><span /><svg viewBox="0 0 24 22" width="18" height="16"><path d="M12 21 C-4 9 3 -3 12 5 C21 -3 28 9 12 21 Z" fill="#e3a21a" /></svg><span /></div>
+          <p className="login-sub">
+            <span>Material de apoio para catequese</span>
+            <span>Paróquia Perpétuo Socorro — Cascavel — PR</span>
+          </p>
+          <h2 className="login-welcome">Bem-vindo(a)!</h2>
+          <p className="login-lead">Entre com sua conta Google para responder e continuar de onde parou.</p>
+          {params.get("expired") && <p className="notice" role="alert">Sua sessão expirou. Entre novamente — suas respostas salvas continuam guardadas.</p>}
+          {DEV_AUTH && (
+            <form
+              className="stack"
+              style={{ width: "100%" }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
+                signIn(`dev:${email}:${email.split("@")[0]}`).catch((err) => setError(errorLines(err)[0] ?? "Falha no login."));
+              }}
+            >
+              <label htmlFor="dev-email">E-mail (login de desenvolvimento)</label>
+              <input id="dev-email" name="email" type="email" required />
+              <button className="btn" type="submit">Entrar (dev)</button>
+            </form>
+          )}
+          {!CLIENT_ID && !DEV_AUTH ? <p className="field-error">Login indisponível: NEXT_PUBLIC_GOOGLE_CLIENT_ID não configurado.</p> : <div className="google-slot" ref={button} aria-label="Entrar com Google" />}
+          {error && <p className="field-error" role="alert">{error}</p>}
+          <PasswordAccess />
+          <p className="hint login-links"><a href="/privacidade">Privacidade</a> <span aria-hidden="true">·</span> <a href="/termos">Termos</a></p>
+        </main>
+        <svg className="olive-sprig" viewBox="0 0 120 160" aria-hidden="true" focusable="false">
+          <path d="M60 158 C58 110 70 60 108 10" stroke="#b9c9a8" strokeWidth="3" fill="none" strokeLinecap="round" />
+          {[[66, 120, -35], [78, 92, -28], [92, 62, -20], [54, 100, 30], [62, 70, 36], [76, 42, 40]].map(([x, y, r], i) => (
+            <ellipse key={i} cx={x} cy={y} rx="7" ry="17" fill="#cfdcc0" transform={`rotate(${r} ${x} ${y})`} />
+          ))}
+        </svg>
+      </section>
+    </div>
   );
 }
 

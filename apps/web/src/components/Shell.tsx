@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function Shell({ children, adminOnly = false, wide = false }: { children: ReactNode; adminOnly?: boolean; wide?: boolean }) {
   const { me, loading, signOut } = useAuth();
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (loading || !me) return <main className="center"><p className="hint" role="status">Carregando…</p></main>;
   if (adminOnly && me.role !== "ADMIN") {
@@ -36,10 +37,13 @@ export function Shell({ children, adminOnly = false, wide = false }: { children:
   return (
     <>
       <a href="#conteudo" className="skip">Ir para o conteúdo</a>
-      <header className="topbar">
-        <nav aria-label="Principal">
+      <header className={`topbar${menuOpen ? " menu-open" : ""}`}>
+        <button type="button" className="btn small ghost menu-btn" aria-expanded={menuOpen} aria-controls="menu-principal" onClick={() => setMenuOpen((o) => !o)}>
+          <span aria-hidden="true">{menuOpen ? "✕" : "☰"}</span> Menu
+        </button>
+        <nav id="menu-principal" aria-label="Principal">
           {nav.map((n) => (
-            <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined}>{n.label}</Link>
+            <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined} onClick={() => setMenuOpen(false)}>{n.label}</Link>
           ))}
         </nav>
         <div className="who">

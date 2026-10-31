@@ -33,6 +33,8 @@
   --art-hill-back: #9bd77a;
   --art-hill-front: #7cc35c;
   --art-robe: #ffffff;
+  --panel: #fdf8ec;
+  --panel-gold: #e3a21a;
 }
 :root[data-theme="dark"] {
   --bg: #101733;
@@ -62,6 +64,8 @@
   --art-hill-back: #2f6b46;
   --art-hill-front: #265a3a;
   --art-robe: #f3f0ff;
+  --panel: #141c3c;
+  --panel-gold: #f0b94a;
 }
 :root { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
@@ -224,18 +228,8 @@ details.enun summary { cursor: pointer; color: var(--primary); font-size: .85rem
 .guide code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 .3rem; font-size: .88em; }
 pre.example { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1rem; overflow-x: auto; font-size: .88rem; margin: 0; }
 
-.theme-toggle { white-space: nowrap; }
-.theme-corner { position: fixed; top: 12px; right: 16px; z-index: 5; }
 
-/* Tela de login: cartão com borda sobre o fundo animado */
-.login-card { max-width: 480px; margin: 4vh auto 5vh; padding: 24px 24px 18px; position: relative; z-index: 1; background: color-mix(in srgb, var(--surface) 94%, transparent); border: var(--stroke-thick) solid var(--primary); border-radius: var(--radius); box-shadow: var(--shadow-pop); }
-.login-card h1 { margin: 0; font-size: 2.2rem; }
-.login-card .login-sub { margin: 0; font-weight: 700; color: var(--accent-ink); line-height: 1.35; }
-.login-card .login-sub span { display: block; }
-.login-card .login-lead { margin: .6rem 0 .2rem; color: var(--muted); }
 
-.login-art { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: var(--art-sky-bottom); }
-.login-art svg { width: 100%; height: 100%; display: block; }
 .art-rays { transform-origin: 600px 330px; animation: art-spin 140s linear infinite; }
 .art-drift { animation: art-drift 38s ease-in-out infinite alternate; }
 .art-drift-b { animation-duration: 52s; animation-direction: alternate-reverse; }
@@ -248,7 +242,6 @@ pre.example { background: var(--bg); border: 1px solid var(--border); border-rad
 @keyframes art-bob { from { transform: translateY(0); } to { transform: translateY(-7px); } }
 @keyframes art-twinkle { 0%, 100% { opacity: .25; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
 @keyframes art-rise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .9; } 100% { opacity: 0; transform: translateY(-150px); } }
-@media (prefers-reduced-motion: reduce) { .login-art * { animation: none !important; } .art-heart { opacity: 0; } }
 
 /* Acesso por e-mail e senha */
 .access-open { margin-top: .4rem; font: inherit; font-weight: 700; }
@@ -260,3 +253,69 @@ pre.example { background: var(--bg); border: 1px solid var(--border); border-rad
 /* Cabeçalho de página com título e botão de ação: o botão não invade o conteúdo de baixo. */
 .page-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; margin-bottom: 1rem; }
 .page-head h1 { margin: 0; }
+
+/* ---------- Tela de login: pintura animada à esquerda + painel claro com borda curva ---------- */
+.login-split { display: grid; grid-template-columns: 56fr 44fr; min-height: 100vh; background: var(--panel); }
+.login-art-pane { position: relative; overflow: hidden; min-height: 100%; background: var(--art-sky-bottom); }
+.login-scene { position: absolute; inset: 0; overflow: hidden; background: var(--art-sky-bottom); }
+.login-scene svg { width: 100%; height: 100%; display: block; }
+.login-photo-wrap { position: absolute; inset: 0; animation: art-zoom 36s ease-in-out infinite alternate; }
+.login-photo { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.login-fx { position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: screen; }
+.fx-rays { animation: art-spin 180s linear infinite; }
+.fx-glow { transform-origin: 470px 255px; animation: fx-glow 6s ease-in-out infinite alternate; }
+.fx-mote { animation: fx-mote 18s ease-in-out infinite; opacity: 0; }
+
+.login-panel { position: relative; background: var(--panel); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 72px 28px 56px; min-width: 0; }
+.panel-curve { position: absolute; top: 0; bottom: 0; left: -59px; width: 60px; z-index: 1; pointer-events: none; }
+.panel-curve svg { width: 100%; height: 100%; display: block; }
+.panel-curve path { fill: var(--panel); }
+.theme-corner { position: absolute; top: 18px; right: 22px; z-index: 5; }
+.login-content { position: relative; z-index: 2; width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .55rem; }
+.church-logo { width: 150px; height: auto; margin-bottom: -.2rem; }
+.login-content h1 { margin: 0; font-size: clamp(2.3rem, 4.2vw, 3.3rem); line-height: 1.05; color: var(--text); }
+.login-rule { display: flex; align-items: center; gap: .7rem; width: 80%; }
+.login-rule span { flex: 1; height: 2px; background: var(--panel-gold); border-radius: 2px; }
+.login-sub { margin: 0; line-height: 1.4; color: var(--accent-ink); font-weight: 700; }
+.login-sub span { display: block; }
+.login-sub span:last-child { font-weight: 600; font-size: .98em; }
+.login-welcome { margin: 1.1rem 0 0; font-size: 1.8rem; color: var(--text); }
+.login-lead { margin: 0 0 .6rem; color: var(--muted); max-width: 30ch; }
+.google-slot { display: flex; justify-content: center; min-height: 44px; width: 100%; filter: drop-shadow(0 3px 8px rgba(40, 60, 120, .12)); }
+.login-links { margin-top: .5rem; }
+.olive-sprig { position: absolute; right: 14px; bottom: 6px; width: 96px; height: auto; opacity: .55; pointer-events: none; z-index: 0; }
+
+/* Interruptor claro / escuro (sol e lua) */
+.theme-switch { display: inline-flex; padding: 3px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(30, 50, 100, .12); }
+.theme-switch button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 34px; border-radius: var(--radius-pill); cursor: pointer; color: var(--muted); transition: background .15s, color .15s; }
+.theme-switch button:focus-visible { outline: var(--stroke-thick) solid var(--primary); outline-offset: 2px; }
+.theme-switch button.on { background: var(--surface); box-shadow: 0 1px 4px rgba(30, 50, 100, .2); }
+.theme-switch button.on.sun { color: #f0a020; }
+.theme-switch button.on.moon { color: var(--primary); }
+.topbar .theme-switch { transform: scale(.9); }
+
+@keyframes art-zoom { from { transform: scale(1); } to { transform: scale(1.06); } }
+@keyframes fx-glow { from { opacity: .35; transform: scale(.92); } to { opacity: .8; transform: scale(1.1); } }
+@keyframes fx-mote { 0% { opacity: 0; transform: translate(0, 40px); } 20% { opacity: .85; } 80% { opacity: .5; } 100% { opacity: 0; transform: translate(34px, -150px); } }
+@media (prefers-reduced-motion: reduce) { .login-split *, .login-photo-wrap { animation: none !important; } .art-heart, .fx-mote { opacity: 0; } }
+
+@media (max-width: 860px) {
+  .login-split { display: flex; flex-direction: column; min-height: 100vh; }
+  .login-art-pane { flex: none; height: 38vh; min-height: 230px; }
+  .login-panel { flex: 1; margin-top: -26px; border-radius: 28px 28px 0 0; padding: 56px 20px 48px; justify-content: flex-start; }
+  .panel-curve { display: none; }
+  .theme-corner { top: 14px; right: 14px; }
+  .church-logo { width: 120px; }
+}
+
+/* Menu recolhível no celular */
+.menu-btn { display: none; }
+@media (max-width: 760px) {
+  .topbar { gap: .4rem .6rem; padding: .5rem 12px; }
+  .menu-btn { display: inline-flex; }
+  .topbar nav { display: none; order: 3; width: 100%; flex-direction: column; gap: .2rem; padding-top: .3rem; border-top: 1px solid var(--border); }
+  .topbar.menu-open nav { display: flex; }
+  .topbar nav a { padding: .7rem 1rem; }
+  .who { gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+  .who > span:first-child { display: none; }
+}

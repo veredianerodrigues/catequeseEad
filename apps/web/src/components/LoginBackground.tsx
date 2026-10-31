@@ -1,4 +1,4 @@
-/** Fundo animado da tela de login: Jesus com as crianças. Ilustração em SVG, decorativa (sem texto). */
+/** Cena animada de reserva da tela de login (Jesus com as crianças), usada enquanto não há a pintura em public/login-art.*. Decorativa. */
 
 type Kid = { x: number; y: number; s: number; skin: string; hair: string; cloth: string; delay: number };
 
@@ -55,7 +55,7 @@ function Cloud({ x, y, s, cls }: { x: number; y: number; s: number; cls: string 
 
 export function LoginBackground() {
   return (
-    <div className="login-art" aria-hidden="true">
+    <div className="login-scene" aria-hidden="true">
       <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMax slice" focusable="false">
         <defs>
           <linearGradient id="art-sky" x1="0" y1="0" x2="0" y2="1">

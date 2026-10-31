@@ -103,7 +103,6 @@ export function LoginBackground() {
           <circle cx="0" cy="-222" r="54" fill="none" stroke="#ffcf3f" strokeWidth="7" opacity="0.95" />
           <path d="M-42 -190 L-78 0 L78 0 L42 -190 Z" style={{ fill: "var(--art-robe)" }} />
           <path d="M-42 -190 L-78 0 L-22 0 L12 -150 Z" fill="#4a6fd6" />
-          <path d="M-8 -188 L-8 0" stroke="#d9d4ee" strokeWidth="2" opacity="0.7" />
           <rect x="-34" y="-128" width="68" height="9" rx="4" fill="#d9a441" />
           <path d="M-38 -176 Q-86 -164 -116 -126" stroke="#f3eefc" strokeWidth="24" strokeLinecap="round" fill="none" />
           <path d="M38 -176 Q86 -164 116 -126" stroke="#f3eefc" strokeWidth="24" strokeLinecap="round" fill="none" />

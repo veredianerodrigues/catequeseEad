@@ -9,7 +9,7 @@ const sans = Nunito({ subsets: ["latin", "latin-ext"], weight: ["400", "600", "7
 
 const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;
 
-export const metadata: Metadata = { title: "Questionários", description: "Responda questionários e retome de onde parou." };
+export const metadata: Metadata = { title: "Saber Catequese", description: "Material de apoio para catequese — Paróquia Perpétuo Socorro, Cascavel – PR." };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

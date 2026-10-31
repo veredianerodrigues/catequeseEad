@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { errorLines } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LoginBackground } from "@/components/LoginBackground";
 
 type GoogleId = {
   initialize: (o: { client_id: string; callback: (r: { credential: string }) => void }) => void;
@@ -57,10 +58,16 @@ function LoginInner() {
   }, [loading, me, signIn]);
 
   return (
-    <main className="center">
+    <>
+    <LoginBackground />
+    <main className="center login-card">
       <div className="theme-corner"><ThemeToggle /></div>
-      <h1>Questionários</h1>
-      <p>Entre com sua conta Google para responder e continuar de onde parou.</p>
+      <h1>Saber Catequese</h1>
+      <p className="login-sub">
+        <span>Material de apoio para catequese</span>
+        <span>Paróquia Perpétuo Socorro – Cascavel – PR</span>
+      </p>
+      <p className="login-lead">Entre com sua conta Google para responder e continuar de onde parou.</p>
       {params.get("expired") && <p className="notice" role="alert">Sua sessão expirou. Entre novamente — suas respostas salvas continuam guardadas.</p>}
       {DEV_AUTH && (
         <form
@@ -80,6 +87,7 @@ function LoginInner() {
       {error && <p className="field-error" role="alert">{error}</p>}
       <p className="hint"><a href="/privacidade">Privacidade</a> · <a href="/termos">Termos</a></p>
     </main>
+    </>
   );
 }
 

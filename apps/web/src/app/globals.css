@@ -25,6 +25,14 @@
   --shadow-pop: 0 4px 0 #b4c4e6;
   --shadow-btn: 0 4px 0 #1a3399;
   --shadow-btn-down: 0 1px 0 #1a3399;
+  --art-sky-top: #aedcff;
+  --art-sky-bottom: #eaf6ff;
+  --art-cloud: #ffffff;
+  --art-ray: #fff1a8;
+  --art-spark: #ffd93d;
+  --art-hill-back: #9bd77a;
+  --art-hill-front: #7cc35c;
+  --art-robe: #ffffff;
 }
 :root[data-theme="dark"] {
   --bg: #101733;
@@ -46,6 +54,14 @@
   --shadow-pop: 0 4px 0 #0a0f24;
   --shadow-btn: 0 4px 0 #4a67b8;
   --shadow-btn-down: 0 1px 0 #4a67b8;
+  --art-sky-top: #0b1233;
+  --art-sky-bottom: #22377a;
+  --art-cloud: #4a5ba0;
+  --art-ray: #ffe08a;
+  --art-spark: #ffe9a8;
+  --art-hill-back: #2f6b46;
+  --art-hill-front: #265a3a;
+  --art-robe: #f3f0ff;
 }
 :root { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
@@ -210,3 +226,26 @@ pre.example { background: var(--bg); border: 1px solid var(--border); border-rad
 
 .theme-toggle { white-space: nowrap; }
 .theme-corner { position: fixed; top: 12px; right: 16px; z-index: 5; }
+
+/* Tela de login: cartão com borda sobre o fundo animado */
+.login-card { max-width: 480px; margin: 4vh auto 5vh; padding: 24px 24px 18px; position: relative; z-index: 1; background: color-mix(in srgb, var(--surface) 94%, transparent); border: var(--stroke-thick) solid var(--primary); border-radius: var(--radius); box-shadow: var(--shadow-pop); }
+.login-card h1 { margin: 0; font-size: 2.2rem; }
+.login-card .login-sub { margin: 0; font-weight: 700; color: var(--accent-ink); line-height: 1.35; }
+.login-card .login-sub span { display: block; }
+.login-card .login-lead { margin: .6rem 0 .2rem; color: var(--muted); }
+
+.login-art { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: var(--art-sky-bottom); }
+.login-art svg { width: 100%; height: 100%; display: block; }
+.art-rays { transform-origin: 600px 330px; animation: art-spin 140s linear infinite; }
+.art-drift { animation: art-drift 38s ease-in-out infinite alternate; }
+.art-drift-b { animation-duration: 52s; animation-direction: alternate-reverse; }
+.art-drift-c { animation-duration: 66s; }
+.art-bob { animation: art-bob 3.2s ease-in-out infinite alternate; }
+.art-twinkle { transform-box: fill-box; transform-origin: center; animation: art-twinkle 3.6s ease-in-out infinite; }
+.art-heart { fill: #ff7a90; opacity: 0; animation: art-rise 7s ease-in infinite; }
+@keyframes art-spin { to { transform: rotate(360deg); } }
+@keyframes art-drift { from { transform: translateX(-70px); } to { transform: translateX(90px); } }
+@keyframes art-bob { from { transform: translateY(0); } to { transform: translateY(-7px); } }
+@keyframes art-twinkle { 0%, 100% { opacity: .25; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes art-rise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .9; } 100% { opacity: 0; transform: translateY(-150px); } }
+@media (prefers-reduced-motion: reduce) { .login-art * { animation: none !important; } .art-heart { opacity: 0; } }

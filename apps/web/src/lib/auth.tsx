@@ -44,6 +44,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, [applyMe]);
 
+  // Ao voltar para a página, confere se a sessão já existe (ex.: a janela do Google travou depois de aprovar, ou o login foi feito em outra aba).
+  useEffect(() => {
+    if (loading || me) return;
+    let checking = false;
+    const recheck = () => {
+      if (checking || document.visibilityState !== "visible") return;
+      checking = true;
+      api
+        .get<Me>("/auth/me")
+        .then(applyMe)
+        .catch(() => undefined)
+        .finally(() => {
+          checking = false;
+        });
+    };
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
+    return () => {
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
+    };
+  }, [loading, me, applyMe]);
+
   useEffect(() => {
     const onExpired = () => {
       applyMe(null);
